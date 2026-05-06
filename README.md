@@ -59,7 +59,7 @@ Two files to provide:
 
 ### 1. `smartcard_config.h`
 
-Maps `common_memset` / `common_memcpy` / ... to your platform's equivalents. See `include/smartcard_config.h` for the default (maps to `<string.h>`).
+Maps `memset` / `memcpy` / ... to your platform's equivalents. See `include/smartcard_config.h` for the default (maps to `<string.h>`).
 
 Optionally define debug macros before including any library header:
 

@@ -4,12 +4,13 @@ project(iso7816 VERSION 1.0.0 LANGUAGES C)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # ── Sources ────────────────────────────────────────────────────────────────────
 set(ISO7816_SOURCES
     src/smartcard.c
     src/sc_defs.c
-    src/Maths/EDC.c
+    src/maths/EDC.c
     src/protocols/protocol_atr.c
     src/protocols/protocol_pps.c
     src/protocols/protocol_TPDU_T0.c
@@ -21,8 +22,6 @@ set(ISO7816_SOURCES
 set(ISO7816_INCLUDE_DIRS
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/protocols>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/Maths>
 )
 
 set(ISO7816_COMPILE_OPTIONS

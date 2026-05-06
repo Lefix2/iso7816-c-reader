@@ -11,3 +11,20 @@
 
 ---
 BasedOnStyle: LLVM
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignConsecutiveMacros:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AllowShortEnumsOnASingleLine: false
+AlignAfterOpenBracket: Align
+BinPackParameters: false

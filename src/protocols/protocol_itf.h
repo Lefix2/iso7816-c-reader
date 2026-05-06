@@ -6,36 +6,31 @@
 #ifndef __PROTOCOL_ITF_H_
 #define __PROTOCOL_ITF_H_
 
-#include <sc_defs.h>
 #include "sc_context.h"
+#include <sc_defs.h>
 
 /************************************************************************************
  * Public defines
  ************************************************************************************/
-
 
 /************************************************************************************
  * Public types
  ************************************************************************************/
 
 typedef struct {
-    sc_Status    (*Transact)        (   sc_context_t*    context,
-                                        uint8_t*    send_buffer,
-                                        uint32_t    send_length,
-                                        uint8_t*    receive_buffer,
-                                        uint32_t*    receive_length
-                                    );
-}protocol_itf_t;
-
+  sc_Status (*Transact)(sc_context_t *context,
+                        uint8_t      *send_buffer,
+                        uint32_t      send_length,
+                        uint8_t      *receive_buffer,
+                        uint32_t     *receive_length);
+} protocol_itf_t;
 
 /************************************************************************************
  * Public variables
  ************************************************************************************/
 
-
 /************************************************************************************
  * Public functions
  ************************************************************************************/
-
 
 #endif /* __PROTOCOL_ITF_H_ */

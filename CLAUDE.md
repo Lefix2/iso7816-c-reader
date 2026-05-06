@@ -31,7 +31,7 @@ Each protocol is a `protocol_itf_t` — a single `Transact(context, send, slen, 
 ## Porting to a new platform
 
 1. Implement `slot_itf_t` for your hardware (use `src/slots/slot_template.c` as reference).
-2. Provide `smartcard_config.h` — maps `common_memset`/`memcpy`/etc. and controls `ENABLE_DEBUG_ISO7816`.
+2. Provide `smartcard_config.h` — maps `memset`/`memcpy`/etc. and controls `ENABLE_DEBUG_ISO7816`.
 3. Provide `type.h` (basic types) and `debug.h` (`dbg_info`, `dbg_comm` macros).
 4. Add `include/` and `src/` to your compiler include paths.
 
