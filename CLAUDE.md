@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Portable C library implementing ISO 7816 smartcard reader (ATR parsing, PPS negotiation, T=0 and T=1 APDU/TPDU). No build system is included — the library is integrated into a host project. The `example/FreeRTOS/` directory is a complete STM32L476 + FreeRTOS integration using STM32CubeIDE.
+Portable C11 library implementing ISO 7816 smartcard reader (ATR parsing, PPS negotiation, T=0 and T=1 APDU/TPDU). Built with CMake — produces static and shared libraries. Tests in `test/` use Unity via FetchContent.
 
 ## Formatting
 
@@ -23,17 +23,16 @@ Entry point for callers. Manages a static slot registry (`reg_p[SC_MAX_SLOTS]`).
 Each protocol is a `protocol_itf_t` — a single `Transact(context, send, slen, recv, rlen)` function pointer. Instances: `protocol_atr`, `protocol_pps`, `protocol_APDU_T0`, `protocol_TPDU_T0`, `protocol_APDU_T1`, `protocol_TPDU_T1`. APDU layers call TPDU layers internally.
 
 ### 3. Slot (hardware) layer (`include/slot_itf.h`)
-`slot_itf_t` is the hardware abstraction: ~20 function pointers covering init/deinit, activate/deactivate, send/receive bytes, set/get frequency, F/D, guard time, timeout, convention, IFSD. The provided implementation (`src/slots/slot_template.c`) uses STM32 HAL SMARTCARD peripheral + FreeRTOS semaphore.
+`slot_itf_t` is the hardware abstraction: ~20 function pointers covering init/deinit, activate/deactivate, send/receive bytes, set/get frequency, F/D, guard time, timeout, convention, IFSD. Reference implementation: `test/slot_sim.c` (software simulation used by tests).
 
 ### Context (`src/sc_context.h`)
 `sc_context_t` = `slot_itf_t*` + `iso_params_t`. Passed through all protocol calls. `iso_params_t` (`include/sc_defs.h`) holds the full negotiated card state: ATR, F/D/fmax, protocol, T=0 WI, T=1 CWI/BWI/IFSC/IFSD/EDC, state machine enum.
 
 ## Porting to a new platform
 
-1. Implement `slot_itf_t` for your hardware (use `src/slots/slot_template.c` as reference).
-2. Provide `smartcard_config.h` — maps `memset`/`memcpy`/etc. and controls `ENABLE_DEBUG_ISO7816`.
-3. Provide `type.h` (basic types) and `debug.h` (`dbg_info`, `dbg_comm` macros).
-4. Add `include/` and `src/` to your compiler include paths.
+1. Implement `slot_itf_t` for your hardware (use `test/slot_sim.c` as reference).
+2. Add `include/` and `src/` to your compiler include paths.
+3. Compile sources listed in `CMakeLists.txt` (`ISO7816_SOURCES`) alongside your project.
 
 ## Key constants (`include/sc_defs.h`)
 

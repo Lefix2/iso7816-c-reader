@@ -26,7 +26,7 @@ Both static (`libiso7816.a`) and shared (`libiso7816.so`) libraries are built.
 ### Run tests
 
 ```sh
-cmake -B build
+cmake -B build -DBUILD_TESTING=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
@@ -55,47 +55,35 @@ Add `include/` and `src/` to your compiler include path and compile the sources 
 
 ## Porting
 
-Two files to provide:
+One thing to provide:
 
-### 1. `smartcard_config.h`
+### `slot_itf_t` implementation
 
-Maps `memset` / `memcpy` / ... to your platform's equivalents. See `include/smartcard_config.h` for the default (maps to `<string.h>`).
-
-Optionally define debug macros before including any library header:
-
-```c
-#define dbg_info(...)            my_log(__VA_ARGS__)
-#define dbg_buff_comm(lbl,p,n)   my_hexdump(lbl, p, n)
-#include "smartcard.h"
-```
-
-### 2. `slot_itf_t` implementation
-
-Implement the hardware abstraction for your UART/USART peripheral. See `src/slots/slot_sim.c` for a reference (used by tests).
+Implement the hardware abstraction for your UART/USART peripheral. See `test/slot_sim.c` for a reference (the simulation slot used by tests).
 
 ```c
 slot_itf_t my_slot = {
-    .init            = ...,
-    .deinit          = ...,
-    .activate        = ...,   /* power on, release RST */
-    .deactivate      = ...,   /* power off */
-    .send_byte       = ...,
-    .send_bytes      = ...,
-    .receive_byte    = ...,
-    .receive_bytes   = ...,
-    .set_frequency   = ...,
-    .get_frequency   = ...,
-    .set_timeout_etu = ...,
-    .get_timeout_etu = ...,
+    .init              = ...,
+    .deinit            = ...,
+    .activate          = ...,   /* power on, release RST */
+    .deactivate        = ...,   /* power off */
+    .send_byte         = ...,
+    .send_bytes        = ...,
+    .receive_byte      = ...,
+    .receive_bytes     = ...,
+    .set_frequency     = ...,
+    .get_frequency     = ...,
+    .set_timeout_etu   = ...,
+    .get_timeout_etu   = ...,
     .set_guardtime_etu = ...,
     .get_guardtime_etu = ...,
-    .set_convention  = ...,
-    .get_convention  = ...,
-    .set_F_D         = ...,
-    .get_F_D         = ...,
-    .set_IFSD        = ...,
-    .get_IFSD        = ...,
-    .get_min_etu_ns  = ...,   /* return sc_Status_Unsuported_feature if N/A */
+    .set_convention    = ...,
+    .get_convention    = ...,
+    .set_F_D           = ...,
+    .get_F_D           = ...,
+    .set_IFSD          = ...,
+    .get_IFSD          = ...,
+    .get_min_etu_ns    = ...,   /* return sc_Status_Unsuported_feature if N/A */
 };
 ```
 
@@ -129,11 +117,9 @@ include/        Public headers (smartcard.h, slot_itf.h, sc_defs.h, sc_status.h,
 src/
   smartcard.c   Public API implementation
   sc_defs.c     ISO 7816 parameter tables (Fi/Di/fmax)
-  Maths/        EDC — LRC and CRC-16
+  maths/        EDC — LRC and CRC-16
   protocols/    ATR, PPS, TPDU T=0, APDU T=0, TPDU T=1, APDU T=1
-  slots/        slot_sim — simulation slot used by tests
-test/           Unity-based test suite
-example/        FreeRTOS + STM32L4 integration example
+test/           Unity-based test suite + slot_sim (simulation slot)
 ```
 
 ## License
