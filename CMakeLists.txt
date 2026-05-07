@@ -6,6 +6,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_C_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(SC_MAX_SLOTS 2 CACHE STRING "Maximum number of registered smartcard slots")
+
 # ── Sources ────────────────────────────────────────────────────────────────────
 set(ISO7816_SOURCES
     src/smartcard.c
@@ -33,6 +35,7 @@ add_library(iso7816_objects OBJECT ${ISO7816_SOURCES})
 set_target_properties(iso7816_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(iso7816_objects PUBLIC ${ISO7816_INCLUDE_DIRS})
 target_compile_options(iso7816_objects PRIVATE ${ISO7816_COMPILE_OPTIONS})
+target_compile_definitions(iso7816_objects PUBLIC SC_MAX_SLOTS=${SC_MAX_SLOTS})
 
 # ── Static library ─────────────────────────────────────────────────────────────
 add_library(iso7816_static STATIC $<TARGET_OBJECTS:iso7816_objects>)
@@ -45,6 +48,25 @@ add_library(iso7816_shared SHARED $<TARGET_OBJECTS:iso7816_objects>)
 add_library(iso7816::shared ALIAS iso7816_shared)
 target_include_directories(iso7816_shared PUBLIC ${ISO7816_INCLUDE_DIRS})
 set_target_properties(iso7816_shared PROPERTIES OUTPUT_NAME iso7816)
+
+# ── Install ────────────────────────────────────────────────────────────────────
+include(GNUInstallDirs)
+
+install(TARGETS iso7816_static iso7816_shared
+    EXPORT iso7816Targets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+install(FILES
+    include/smartcard.h
+    include/slot_itf.h
+    include/sc_defs.h
+    include/sc_status.h
+    include/sc_debug.h
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iso7816
+)
 
 # ── Tests ──────────────────────────────────────────────────────────────────────
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)

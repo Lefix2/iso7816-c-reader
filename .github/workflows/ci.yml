@@ -21,3 +21,57 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build -C Debug --output-on-failure
+
+  sanitizers:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Configure
+        run: >
+          cmake -B build-san -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
+          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+
+      - name: Build
+        run: cmake --build build-san
+
+      - name: Test
+        run: ctest --test-dir build-san --output-on-failure
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+          UBSAN_OPTIONS: print_stacktrace=1
+
+  coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install lcov
+        run: sudo apt-get install -y lcov
+
+      - name: Configure
+        run: >
+          cmake -B build-cov -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_FLAGS="--coverage"
+          -DCMAKE_EXE_LINKER_FLAGS="--coverage"
+
+      - name: Build
+        run: cmake --build build-cov
+
+      - name: Test
+        run: ctest --test-dir build-cov --output-on-failure
+
+      - name: Generate report
+        run: |
+          lcov --capture --directory build-cov --output-file coverage.info
+          lcov --remove coverage.info '*/test/*' '*/_deps/*' --output-file coverage.info
+          genhtml coverage.info --output-directory coverage-html
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-html/

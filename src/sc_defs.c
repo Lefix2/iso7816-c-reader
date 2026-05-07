@@ -68,7 +68,6 @@ void iso_params_init(iso_params_t *params) {
   params->state = sc_state_power_off;
 
   params->frequency        = 4000000;
-  params->convention       = convention_direct;
   params->supported_prot   = 0;
   params->default_protocol = 0;
 

@@ -501,7 +501,7 @@ sc_Status smartcard_Power_Off(uint32_t slot) {
 }
 
 sc_Status smartcard_Xfer_Data(uint32_t  slot,
-                              uint8_t  *send_buffer,
+                              const uint8_t *send_buffer,
                               uint32_t  send_length,
                               uint8_t  *receive_buffer,
                               uint32_t *receive_length) {

@@ -31,7 +31,7 @@ typedef struct {
 
   sc_Status (*send_byte)(uint8_t byte);
 
-  sc_Status (*send_bytes)(uint8_t *ptr, uint32_t len);
+  sc_Status (*send_bytes)(const uint8_t *ptr, uint32_t len);
 
   sc_Status (*receive_byte)(uint8_t *byte);
 

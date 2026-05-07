@@ -3,7 +3,7 @@
  * Expose API for Protocol and Parameters Selection
  */
 
-#include <memory.h>
+#include <string.h>
 
 #include "protocols.h"
 #include "sc_debug.h"
@@ -38,7 +38,7 @@ static uint8_t pps_getlen(uint8_t PPS0) {
 }
 
 static sc_Status protocol_pps_transact(sc_context_t *context,
-                                       uint8_t      *send_buffer,
+                                       const uint8_t *send_buffer,
                                        uint32_t      send_length,
                                        uint8_t      *receive_buffer,
                                        uint32_t     *receive_length) {

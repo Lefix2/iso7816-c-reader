@@ -55,7 +55,7 @@ typedef enum {
  ************************************************************************************/
 
 static sc_Status APDU_T0_Decode(APDU_T0_state *state,
-                                uint8_t       *buffer,
+                                const uint8_t *buffer,
                                 uint32_t       n,
                                 uint32_t      *Nc,
                                 uint32_t      *Ne) {
@@ -126,7 +126,7 @@ static sc_Status APDU_T0_Decode(APDU_T0_state *state,
 }
 
 static sc_Status protocol_APDU_T0_transact(sc_context_t *context,
-                                           uint8_t      *send_buffer,
+                                           const uint8_t *send_buffer,
                                            uint32_t      send_length,
                                            uint8_t      *receive_buffer,
                                            uint32_t     *receive_length) {

@@ -9,7 +9,6 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-
 #include "sc_status.h"
 
 #ifndef UNUSED
@@ -159,8 +158,7 @@ typedef enum {
 typedef struct {
   sc_state_t state; /* State of the SE */
 
-  sc_convention_t convention;
-  uint16_t        supported_prot;
+  uint16_t supported_prot;
 
   atr_t ATR;
 

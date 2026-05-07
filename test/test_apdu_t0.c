@@ -1,8 +1,9 @@
-#include "protocols.h"
+#include "unity.h"
+
+#include "protocols/protocols.h"
 #include "sc_context.h"
 #include "sc_defs.h"
 #include "slot_sim.h"
-#include "unity.h"
 
 static sc_context_t ctx;
 
@@ -166,6 +167,21 @@ void test_apdu_t0_get_response_61(void) {
   TEST_ASSERT_EQUAL_HEX8(0x00, recv[3]);
 }
 
+/* ── Timeout: card never responds ───────────────────────────────────────── */
+void test_apdu_t0_timeout(void) {
+  uint8_t apdu[] = {0x00, 0x20, 0x00, 0x00};
+  slot_sim_setup(NULL, 0, NULL, 0); /* no rx bytes → timeout */
+  setup_t0_context();
+
+  uint8_t  recv[16];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Slot_Reception_Timeout, r);
+}
+
 /* ── Malformed APDU ──────────────────────────────────────────────────────── */
 void test_apdu_t0_malformed(void) {
   /* 3 bytes is not a valid APDU */
@@ -190,6 +206,7 @@ int main(void) {
   RUN_TEST(test_apdu_t0_case4s);
   RUN_TEST(test_apdu_t0_wrong_length_6c);
   RUN_TEST(test_apdu_t0_get_response_61);
+  RUN_TEST(test_apdu_t0_timeout);
   RUN_TEST(test_apdu_t0_malformed);
   return UNITY_END();
 }

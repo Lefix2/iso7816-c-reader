@@ -18,11 +18,11 @@
  ************************************************************************************/
 
 typedef struct {
-  sc_Status (*Transact)(sc_context_t *context,
-                        uint8_t      *send_buffer,
-                        uint32_t      send_length,
-                        uint8_t      *receive_buffer,
-                        uint32_t     *receive_length);
+  sc_Status (*Transact)(sc_context_t  *context,
+                        const uint8_t *send_buffer,
+                        uint32_t       send_length,
+                        uint8_t       *receive_buffer,
+                        uint32_t      *receive_length);
 } protocol_itf_t;
 
 /************************************************************************************

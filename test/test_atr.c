@@ -1,8 +1,9 @@
-#include "protocols.h"
+#include "unity.h"
+
+#include "protocols/protocols.h"
 #include "sc_context.h"
 #include "sc_defs.h"
 #include "slot_sim.h"
-#include "unity.h"
 
 static sc_context_t ctx;
 static uint8_t      atr_buf[ATR_MAX_LENGTH];
@@ -161,6 +162,30 @@ void test_atr_ta1_tc1(void) {
   TEST_ASSERT_EQUAL_HEX8(0x08, ctx.params.ATR.T[0][ATR_INTERFACE_C].value);
 }
 
+/* ── ATR: bad TCK (wrong XOR checksum) ──────────────────────────────────── */
+void test_atr_bad_tck(void) {
+  /* T=1 ATR: 3B 80 01 → TCK must be 0x80^0x01=0x81; inject 0xFF instead */
+  static const uint8_t raw[] = {0x3B, 0x80, 0x01, 0xFF};
+  slot_sim_setup(raw, sizeof(raw), NULL, 0);
+  setup_context();
+  atr_len = sizeof(atr_buf);
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed, r);
+}
+
+/* ── ATR: timeout on first byte ──────────────────────────────────────────── */
+void test_atr_timeout(void) {
+  slot_sim_setup(NULL, 0, NULL, 0); /* no bytes → timeout */
+  setup_context();
+  atr_len = sizeof(atr_buf);
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Slot_Reception_Timeout, r);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_atr_minimal_t0);
@@ -172,5 +197,7 @@ int main(void) {
   RUN_TEST(test_atr_buffer_too_small);
   RUN_TEST(test_atr_bad_state);
   RUN_TEST(test_atr_ta1_tc1);
+  RUN_TEST(test_atr_bad_tck);
+  RUN_TEST(test_atr_timeout);
   return UNITY_END();
 }

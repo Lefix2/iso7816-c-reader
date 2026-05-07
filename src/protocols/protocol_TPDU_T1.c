@@ -95,7 +95,7 @@ check_Block(uint8_t NAD, uint8_t PCB, uint8_t LEN, uint8_t IFS) {
 }
 
 static sc_Status protocol_TPDU_T1_transact(sc_context_t *context,
-                                           uint8_t      *send_buffer,
+                                           const uint8_t *send_buffer,
                                            uint32_t      send_length,
                                            uint8_t      *receive_buffer,
                                            uint32_t     *receive_length) {

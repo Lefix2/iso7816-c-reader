@@ -53,7 +53,7 @@ static sc_Status sim_send_byte(uint8_t byte) {
   return sc_Status_Success;
 }
 
-static sc_Status sim_send_bytes(uint8_t *ptr, uint32_t len) {
+static sc_Status sim_send_bytes(const uint8_t *ptr, uint32_t len) {
   for (uint32_t i = 0; i < len; i++)
     sim_send_byte(ptr[i]);
   return sc_Status_Success;

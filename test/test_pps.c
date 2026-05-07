@@ -1,8 +1,9 @@
-#include "protocols.h"
+#include "unity.h"
+
+#include "protocols/protocols.h"
 #include "sc_context.h"
 #include "sc_defs.h"
 #include "slot_sim.h"
-#include "unity.h"
 
 static sc_context_t ctx;
 

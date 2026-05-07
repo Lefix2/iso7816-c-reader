@@ -3,7 +3,7 @@
  * Expose API for Answer To Reset
  */
 
-#include <memory.h>
+#include <string.h>
 
 #include "protocols.h"
 #include "sc_debug.h"
@@ -27,7 +27,7 @@ static const uint8_t nb_Tx_table[16] = {0, 1, 1, 2, 1, 2, 2, 3,
  ************************************************************************************/
 
 static sc_Status protocol_atr_transact(sc_context_t *context,
-                                       uint8_t      *send_buffer,
+                                       const uint8_t *send_buffer,
                                        uint32_t      send_length,
                                        uint8_t      *receive_buffer,
                                        uint32_t     *receive_length) {
@@ -179,6 +179,13 @@ static sc_Status protocol_atr_transact(sc_context_t *context,
       return ret;
     }
     atr.TCK.value = receive_buffer[(*receive_length) - 1];
+
+    /* Validate TCK: XOR of bytes T0..TCK must equal zero (ISO 7816-3 §8.2.5) */
+    uint8_t xor = 0;
+    for (uint32_t i = 1; i < *receive_length; i++)
+      xor ^= receive_buffer[i];
+    if (xor != 0)
+      return sc_Status_ATR_Malformed;
   }
 
   context->params.ATR = atr;
@@ -198,7 +205,7 @@ protocol_itf_t protocol_atr = {protocol_atr_transact};
  * Public functions
  ************************************************************************************/
 
-sc_Status atr_get_convention(atr_t *atr, sc_convention_t *convention) {
+sc_Status atr_get_convention(const atr_t *atr, sc_convention_t *convention) {
   if (atr->TS == 0x3B)
     (*convention) = convention_direct;
   else if (atr->TS == 0x3F)
@@ -209,7 +216,7 @@ sc_Status atr_get_convention(atr_t *atr, sc_convention_t *convention) {
   return (sc_Status_Success);
 }
 
-sc_Status atr_get_fmax(atr_t *atr, uint32_t *fmax) {
+sc_Status atr_get_fmax(const atr_t *atr, uint32_t *fmax) {
   uint8_t i;
 
   if (atr->T[0][ATR_INTERFACE_A].present) {
@@ -222,7 +229,7 @@ sc_Status atr_get_fmax(atr_t *atr, uint32_t *fmax) {
   return sc_Status_Success;
 }
 
-sc_Status atr_get_Fi(atr_t *atr, uint32_t *F) {
+sc_Status atr_get_Fi(const atr_t *atr, uint32_t *F) {
   uint8_t i;
 
   if (atr->T[0][ATR_INTERFACE_A].present) {
@@ -235,7 +242,7 @@ sc_Status atr_get_Fi(atr_t *atr, uint32_t *F) {
   return sc_Status_Success;
 }
 
-sc_Status atr_get_Di(atr_t *atr, uint32_t *D) {
+sc_Status atr_get_Di(const atr_t *atr, uint32_t *D) {
   uint8_t i;
 
   if (atr->T[0][ATR_INTERFACE_A].present) {
@@ -248,7 +255,7 @@ sc_Status atr_get_Di(atr_t *atr, uint32_t *D) {
   return sc_Status_Success;
 }
 
-sc_Status atr_get_I(atr_t *atr, uint32_t *I) {
+sc_Status atr_get_I(const atr_t *atr, uint32_t *I) {
   uint8_t i;
 
   if (atr->T[0][ATR_INTERFACE_B].present) {
@@ -261,7 +268,7 @@ sc_Status atr_get_I(atr_t *atr, uint32_t *I) {
   return sc_Status_Success;
 }
 
-sc_Status atr_get_P(atr_t *atr, uint8_t *P) {
+sc_Status atr_get_P(const atr_t *atr, uint8_t *P) {
   if (atr->T[1][ATR_INTERFACE_B].present) {
     (*P) = atr->T[1][ATR_INTERFACE_B].value;
   } else if (atr->T[0][ATR_INTERFACE_B].present) {
@@ -273,7 +280,7 @@ sc_Status atr_get_P(atr_t *atr, uint8_t *P) {
   return sc_Status_Success;
 }
 
-sc_Status atr_get_N(atr_t *atr, uint8_t *N) {
+sc_Status atr_get_N(const atr_t *atr, uint8_t *N) {
   if (atr->T[0][ATR_INTERFACE_C].present) {
     (*N) = atr->T[0][ATR_INTERFACE_C].value;
   } else {
@@ -283,7 +290,7 @@ sc_Status atr_get_N(atr_t *atr, uint8_t *N) {
   return sc_Status_Success;
 }
 
-sc_Status atr_get_WI(atr_t *atr, uint8_t *WI) {
+sc_Status atr_get_WI(const atr_t *atr, uint8_t *WI) {
   itfB_t TC2 = atr->T[1][ATR_INTERFACE_C];
 
   if (TC2.present) {
@@ -298,7 +305,7 @@ sc_Status atr_get_WI(atr_t *atr, uint8_t *WI) {
   return sc_Status_Success;
 }
 
-sc_Status atr_T1_specific_get_EDC(atr_t *atr, uint8_t *EDC) {
+sc_Status atr_T1_specific_get_EDC(const atr_t *atr, uint8_t *EDC) {
   for (int i = 2; i < ATR_MAX_PROTOCOL; i++) {
     /* For TD defining T1 */
     if ((atr->T[i][ATR_INTERFACE_C].present) &&
@@ -313,7 +320,7 @@ sc_Status atr_T1_specific_get_EDC(atr_t *atr, uint8_t *EDC) {
   return sc_Status_Success;
 }
 
-sc_Status atr_T1_specific_get_IFS(atr_t *atr, uint8_t *IFS) {
+sc_Status atr_T1_specific_get_IFS(const atr_t *atr, uint8_t *IFS) {
   for (int i = 2; i < ATR_MAX_PROTOCOL; i++) {
     /* For TD defining T1 */
     if ((atr->T[i][ATR_INTERFACE_A].present) &&
@@ -331,7 +338,7 @@ sc_Status atr_T1_specific_get_IFS(atr_t *atr, uint8_t *IFS) {
   return sc_Status_Success;
 }
 
-sc_Status atr_T1_specific_get_CBWI(atr_t *atr, uint8_t *CWI, uint8_t *BWI) {
+sc_Status atr_T1_specific_get_CBWI(const atr_t *atr, uint8_t *CWI, uint8_t *BWI) {
   for (int i = 2; i < ATR_MAX_PROTOCOL; i++) {
     /* For TD defining T1 */
     if ((atr->T[i][ATR_INTERFACE_B].present) &&

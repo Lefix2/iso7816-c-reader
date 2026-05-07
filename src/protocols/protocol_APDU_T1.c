@@ -57,11 +57,11 @@ typedef enum {
  * Private functions
  ************************************************************************************/
 
-static sc_Status build_I_block(iso_params_t *params,
-                               uint8_t      *block,
-                               uint32_t     *block_len,
-                               uint8_t      *data_buffer,
-                               uint32_t      data_len) {
+static sc_Status build_I_block(iso_params_t  *params,
+                               uint8_t       *block,
+                               uint32_t      *block_len,
+                               const uint8_t *data_buffer,
+                               uint32_t       data_len) {
   uint32_t len;
   uint16_t CRC;
   uint8_t  PCB;
@@ -182,7 +182,7 @@ static bool check_resync_pcb(uint8_t PCB) {
 }
 
 static sc_Status protocol_APDU_T1_transact(sc_context_t *context,
-                                           uint8_t      *send_buffer,
+                                           const uint8_t *send_buffer,
                                            uint32_t      send_length,
                                            uint8_t      *receive_buffer,
                                            uint32_t     *receive_length) {

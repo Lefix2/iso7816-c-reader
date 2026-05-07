@@ -1,10 +1,12 @@
+#include <string.h>
+
+#include "unity.h"
+
 #include "maths/EDC.h"
-#include "protocols.h"
+#include "protocols/protocols.h"
 #include "sc_context.h"
 #include "sc_defs.h"
 #include "slot_sim.h"
-#include <string.h>
-#include "unity.h"
 
 static sc_context_t ctx;
 
@@ -258,6 +260,41 @@ void test_apdu_t1_resync_abort(void) {
   TEST_ASSERT_EQUAL(sc_Status_APDU_T1_Bad_Response, r);
 }
 
+/* ── Bad NAD in response (card replies with wrong addressing) ────────────── */
+void test_apdu_t1_bad_nad(void) {
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  uint8_t  sim_rx[64];
+  uint32_t rx_pos = 0;
+  uint32_t blen;
+
+  /* IFS response with correct NAD=0x00 */
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  /* I-block response with bad NAD: 0x21 instead of 0x00 */
+  uint8_t resp_data[] = {0xFF, 0x90, 0x00};
+  sim_rx[rx_pos + 0] = 0x21; /* wrong NAD */
+  sim_rx[rx_pos + 1] = 0x00; /* PCB I-block N(S)=0 */
+  sim_rx[rx_pos + 2] = sizeof(resp_data);
+  memcpy(sim_rx + rx_pos + 3, resp_data, sizeof(resp_data));
+  sim_rx[rx_pos + 3 + sizeof(resp_data)] =
+      lrc_of(sim_rx + rx_pos, 3 + sizeof(resp_data));
+  rx_pos += 4 + sizeof(resp_data);
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_NOT_EQUAL(sc_Status_Success, r);
+}
+
 /* ── Bad state ──────────────────────────────────────────────────────────────
  */
 void test_apdu_t1_bad_state(void) {
@@ -282,6 +319,7 @@ int main(void) {
   RUN_TEST(test_apdu_t1_chaining);
   RUN_TEST(test_apdu_t1_bad_edc);
   RUN_TEST(test_apdu_t1_resync_abort);
+  RUN_TEST(test_apdu_t1_bad_nad);
   RUN_TEST(test_apdu_t1_bad_state);
   return UNITY_END();
 }

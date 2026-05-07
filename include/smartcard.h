@@ -13,7 +13,9 @@
  * Public defines
  ************************************************************************************/
 
+#ifndef SC_MAX_SLOTS
 #define SC_MAX_SLOTS 2
+#endif
 
 /************************************************************************************
  * Public types
@@ -41,11 +43,11 @@ sc_Status smartcard_Power_On(uint32_t  slot,
 
 sc_Status smartcard_Power_Off(uint32_t slot);
 
-sc_Status smartcard_Xfer_Data(uint32_t  slot,
-                              uint8_t  *send_buffer,
-                              uint32_t  send_length,
-                              uint8_t  *receive_buffer,
-                              uint32_t *receive_length);
+sc_Status smartcard_Xfer_Data(uint32_t       slot,
+                              const uint8_t *send_buffer,
+                              uint32_t       send_length,
+                              uint8_t       *receive_buffer,
+                              uint32_t      *receive_length);
 
 bool smartcard_Is_Present(uint32_t slot);
 

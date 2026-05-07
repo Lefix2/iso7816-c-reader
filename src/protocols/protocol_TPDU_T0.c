@@ -47,7 +47,7 @@ typedef enum {
  ************************************************************************************/
 
 static sc_Status protocol_TPDU_T0_transact(sc_context_t *context,
-                                           uint8_t      *send_buffer,
+                                           const uint8_t *send_buffer,
                                            uint32_t      send_length,
                                            uint8_t      *receive_buffer,
                                            uint32_t     *receive_length) {
@@ -289,7 +289,7 @@ static sc_Status protocol_TPDU_T0_transact(sc_context_t *context,
       if (SW1 == 0x6C) {
         Na                  = (SW2 == 0 ? 256 : SW2);
         len_to_receive      = Na + 2;
-        send_buffer[P3_IDX] = SW2;
+        ((uint8_t *)send_buffer)[P3_IDX] = SW2;
         send_length         = 0;
         is_rcv              = true;
         state               = TPDU_T0_send_header;
