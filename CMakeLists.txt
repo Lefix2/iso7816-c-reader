@@ -64,7 +64,6 @@ install(FILES
     include/slot_itf.h
     include/sc_defs.h
     include/sc_status.h
-    include/sc_debug.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/iso7816
 )
 
