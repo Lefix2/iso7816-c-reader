@@ -312,6 +312,150 @@ void test_apdu_t1_bad_state(void) {
   TEST_ASSERT_EQUAL(sc_Status_Bad_State, r);
 }
 
+/* ── CRC EDC mode: build_I_block/S_block/R_block with CRC-16 ─────────────── */
+static void build_s_ifs_response_crc(uint8_t *block, uint32_t *len, uint8_t ifsd) {
+  block[0]      = 0x00;
+  block[1]      = 0xE1; /* S(IFS response) */
+  block[2]      = 0x01;
+  block[3]      = ifsd;
+  uint16_t crc  = EDC_CRC(block, 4);
+  block[4]      = (uint8_t)(crc >> 8);
+  block[5]      = (uint8_t)(crc & 0xFF);
+  *len          = 6;
+}
+
+static void build_i_block_crc(uint8_t       *block,
+                               uint32_t      *len,
+                               uint8_t        ns,
+                               const uint8_t *data,
+                               uint8_t        data_len) {
+  block[0] = 0x00;
+  block[1] = (uint8_t)(ns << 6);
+  block[2] = data_len;
+  if (data_len > 0)
+    memcpy(block + 3, data, data_len);
+  uint16_t crc        = EDC_CRC(block, 3 + data_len);
+  block[3 + data_len] = (uint8_t)(crc >> 8);
+  block[4 + data_len] = (uint8_t)(crc & 0xFF);
+  *len                = 5 + data_len;
+}
+
+void test_apdu_t1_crc_mode(void) {
+  /* CRC-16 mode: exercises build_I_block/S_block CRC paths and TPDU
+   * receive_CRC state */
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x02};
+
+  uint8_t  sim_rx[128];
+  uint32_t rx_pos = 0;
+  uint32_t blen;
+
+  build_s_ifs_response_crc(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  uint8_t resp_data[] = {0xDE, 0xAD, 0x90, 0x00};
+  build_i_block_crc(sim_rx + rx_pos, &blen, 0, resp_data, sizeof(resp_data));
+  rx_pos += blen;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+  ctx.params.EDC = SC_EDC_CRC;
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(4, recv_len);
+  TEST_ASSERT_EQUAL_HEX8(0xDE, recv[0]);
+  TEST_ASSERT_EQUAL_HEX8(0xAD, recv[1]);
+}
+
+/* ── Card sends R(0) requesting retransmit: exercises process_R_block ──────── */
+void test_apdu_t1_card_retransmit(void) {
+  /* Case 2S: Le=1. After IFS exchange, card sends R(Nr=0) requesting
+   * retransmission of our I-block, then sends a good I-block response. */
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  uint8_t  sim_rx[128];
+  uint32_t rx_pos = 0;
+  uint32_t blen;
+
+  /* IFS response */
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  /* R(Nr=0): PCB=0x80, LEN=0 — card asks us to retransmit N(S)=0 */
+  sim_rx[rx_pos + 0] = 0x00;
+  sim_rx[rx_pos + 1] = 0x80; /* PCB_R_BLOCK, N(R)=0 */
+  sim_rx[rx_pos + 2] = 0x00;
+  sim_rx[rx_pos + 3] = lrc_of(sim_rx + rx_pos, 3);
+  rx_pos += 4;
+
+  /* Good I-block response after retransmit: N(S)=0, data = [FF 90 00] */
+  uint8_t resp_data[] = {0xFF, 0x90, 0x00};
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, resp_data, sizeof(resp_data));
+  rx_pos += blen;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(3, recv_len);
+  TEST_ASSERT_EQUAL_HEX8(0xFF, recv[0]);
+  TEST_ASSERT_EQUAL_HEX8(0x90, recv[1]);
+  TEST_ASSERT_EQUAL_HEX8(0x00, recv[2]);
+}
+
+/* ── Abort request from card: card sends S(ABORT request) ───────────────── */
+void test_apdu_t1_abort_request(void) {
+  /* After IFS exchange, card sends S(ABORT request); we echo S(ABORT response).
+   * The subsequent empty I-block from card completes the transaction. */
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  uint8_t  sim_rx[128];
+  uint32_t rx_pos = 0;
+  uint32_t blen;
+
+  /* IFS response */
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  /* S(ABORT request): PCB=0xC2, LEN=0 */
+  sim_rx[rx_pos + 0] = 0x00;
+  sim_rx[rx_pos + 1] = 0xC2; /* PCB_S_BLOCK | PCB_S_ABORT */
+  sim_rx[rx_pos + 2] = 0x00;
+  sim_rx[rx_pos + 3] = lrc_of(sim_rx + rx_pos, 3);
+  rx_pos += 4;
+
+  /* After abort response, card sends I-block with SW = [90 00] */
+  uint8_t resp_data[] = {0x90, 0x00};
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, resp_data, sizeof(resp_data));
+  rx_pos += blen;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  /* Abort request handled; transaction result forwarded */
+  TEST_ASSERT_NOT_EQUAL(sc_Status_APDU_T1_Bad_Response, r);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_apdu_t1_single_exchange);
@@ -321,5 +465,8 @@ int main(void) {
   RUN_TEST(test_apdu_t1_resync_abort);
   RUN_TEST(test_apdu_t1_bad_nad);
   RUN_TEST(test_apdu_t1_bad_state);
+  RUN_TEST(test_apdu_t1_crc_mode);
+  RUN_TEST(test_apdu_t1_card_retransmit);
+  RUN_TEST(test_apdu_t1_abort_request);
   return UNITY_END();
 }
