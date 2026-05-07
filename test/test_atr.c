@@ -186,6 +186,263 @@ void test_atr_timeout(void) {
   TEST_ASSERT_EQUAL(sc_Status_Slot_Reception_Timeout, r);
 }
 
+/* ── atr_get_convention ──────────────────────────────────────────────────── */
+
+void test_atr_get_convention_direct(void) {
+  atr_t          atr;
+  sc_convention_t conv;
+  atr_init(&atr);
+  atr.TS = 0x3B;
+  TEST_ASSERT_EQUAL(sc_Status_Success, atr_get_convention(&atr, &conv));
+  TEST_ASSERT_EQUAL(convention_direct, conv);
+}
+
+void test_atr_get_convention_reverse(void) {
+  atr_t          atr;
+  sc_convention_t conv;
+  atr_init(&atr);
+  atr.TS = 0x3F;
+  TEST_ASSERT_EQUAL(sc_Status_Success, atr_get_convention(&atr, &conv));
+  TEST_ASSERT_EQUAL(convention_reverse, conv);
+}
+
+void test_atr_get_convention_invalid(void) {
+  atr_t          atr;
+  sc_convention_t conv;
+  atr_init(&atr);
+  atr.TS = 0x00;
+  TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed, atr_get_convention(&atr, &conv));
+}
+
+/* ── atr_get_I (TB1) ─────────────────────────────────────────────────────── */
+
+void test_atr_get_I_default(void) {
+  atr_t    atr;
+  uint32_t I;
+  atr_init(&atr);
+  TEST_ASSERT_EQUAL(sc_Status_Success, atr_get_I(&atr, &I));
+  TEST_ASSERT_EQUAL(ATR_DEFAULT_I, I);
+}
+
+void test_atr_get_I_from_tb1(void) {
+  atr_t    atr;
+  uint32_t I;
+  atr_init(&atr);
+  /* TB1 bits [6:5] = 0b10 → index 2 → I = 100 mA */
+  atr.T[0][ATR_INTERFACE_B].present = true;
+  atr.T[0][ATR_INTERFACE_B].value   = 0x40;
+  TEST_ASSERT_EQUAL(sc_Status_Success, atr_get_I(&atr, &I));
+  TEST_ASSERT_EQUAL(100, I);
+}
+
+/* ── atr_get_P (TB1/TB2) ─────────────────────────────────────────────────── */
+
+void test_atr_get_P_default(void) {
+  atr_t   atr;
+  uint8_t P;
+  atr_init(&atr);
+  TEST_ASSERT_EQUAL(sc_Status_Success, atr_get_P(&atr, &P));
+  TEST_ASSERT_EQUAL(ATR_DEFAULT_P, P);
+}
+
+void test_atr_get_P_from_tb1(void) {
+  atr_t   atr;
+  uint8_t P;
+  atr_init(&atr);
+  /* TB1 low 5 bits = programming voltage, masked to 0x1F */
+  atr.T[0][ATR_INTERFACE_B].present = true;
+  atr.T[0][ATR_INTERFACE_B].value   = 0x55;
+  TEST_ASSERT_EQUAL(sc_Status_Success, atr_get_P(&atr, &P));
+  TEST_ASSERT_EQUAL(0x55 & 0x1F, P);
+}
+
+void test_atr_get_P_from_tb2(void) {
+  atr_t   atr;
+  uint8_t P;
+  atr_init(&atr);
+  atr.T[1][ATR_INTERFACE_B].present = true;
+  atr.T[1][ATR_INTERFACE_B].value   = 0x20;
+  TEST_ASSERT_EQUAL(sc_Status_Success, atr_get_P(&atr, &P));
+  TEST_ASSERT_EQUAL(0x20, P);
+}
+
+/* ── atr_get_WI with TC2 present ─────────────────────────────────────────── */
+
+void test_atr_get_wi_from_tc2(void) {
+  atr_t   atr;
+  uint8_t WI;
+  atr_init(&atr);
+  atr.T[1][ATR_INTERFACE_C].present = true;
+  atr.T[1][ATR_INTERFACE_C].value   = 0x0F;
+  TEST_ASSERT_EQUAL(sc_Status_Success, atr_get_WI(&atr, &WI));
+  TEST_ASSERT_EQUAL(0x0F, WI);
+}
+
+void test_atr_get_wi_tc2_zero_is_malformed(void) {
+  atr_t   atr;
+  uint8_t WI;
+  atr_init(&atr);
+  atr.T[1][ATR_INTERFACE_C].present = true;
+  atr.T[1][ATR_INTERFACE_C].value   = 0x00;
+  TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed, atr_get_WI(&atr, &WI));
+}
+
+/* ── sc_defs boundary tests ──────────────────────────────────────────────── */
+
+void test_sc_defs_get_fi_reserved(void) {
+  uint32_t F;
+  /* Index 7: f_table[7]=0 → reserved → Invalid_Parameter */
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_Fi(7, &F));
+}
+
+void test_sc_defs_get_di_reserved(void) {
+  uint32_t D;
+  /* Index 10: d_table[10]=0 → reserved */
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_Di(10, &D));
+}
+
+void test_sc_defs_get_fmax_reserved(void) {
+  uint32_t fmax;
+  /* Index 7: fmax_table[7]=0 → reserved */
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_fmax(7, &fmax));
+}
+
+void test_sc_defs_get_i_reserved(void) {
+  uint32_t I;
+  /* Index 3: i_table[3]=0 → reserved */
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_I(3, &I));
+}
+
+void test_sc_defs_get_min_etu_ns_valid(void) {
+  /* Fi=9=512, Di=7=64, fmax=5000000 → etu = 10000*512 / (64*(5000000/100000)) */
+  uint32_t etu = get_min_etu_ns(9, 7);
+  TEST_ASSERT_GREATER_THAN(0, etu);
+}
+
+void test_sc_defs_get_fi_out_of_bounds(void) {
+  uint32_t F;
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_Fi(17, &F));
+}
+
+void test_sc_defs_get_di_out_of_bounds(void) {
+  uint32_t D;
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_Di(17, &D));
+}
+
+void test_sc_defs_get_fmax_out_of_bounds(void) {
+  uint32_t fmax;
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_fmax(17, &fmax));
+}
+
+void test_sc_defs_get_i_out_of_bounds(void) {
+  uint32_t I;
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_I(17, &I));
+}
+
+void test_sc_defs_get_min_etu_ns_reserved_fi(void) {
+  /* Fi index 7 → reserved (0) → get_Fi fails → get_min_etu_ns returns 0 */
+  TEST_ASSERT_EQUAL(0, get_min_etu_ns(7, 1));
+}
+
+void test_sc_defs_get_min_etu_ns_reserved_di(void) {
+  /* Di index 10 → reserved (0) → get_Di fails → returns 0 */
+  TEST_ASSERT_EQUAL(0, get_min_etu_ns(1, 10));
+}
+
+/* ── T=1 specific accessors ──────────────────────────────────────────────── */
+
+void test_atr_t1_ifs_present(void) {
+  /* Build ATR with T[2][A] present and T[1][D].value = T1 (0x01) */
+  atr_t   atr;
+  uint8_t IFS;
+  atr_init(&atr);
+  atr.T[1][ATR_INTERFACE_D].present = true;
+  atr.T[1][ATR_INTERFACE_D].value   = SC_PROTOCOL_T1;
+  atr.T[2][ATR_INTERFACE_A].present = true;
+  atr.T[2][ATR_INTERFACE_A].value   = 0x80; /* IFS=128, valid */
+  TEST_ASSERT_EQUAL(sc_Status_Success, atr_T1_specific_get_IFS(&atr, &IFS));
+  TEST_ASSERT_EQUAL(0x80, IFS);
+}
+
+void test_atr_t1_ifs_zero_is_malformed(void) {
+  atr_t   atr;
+  uint8_t IFS;
+  atr_init(&atr);
+  atr.T[1][ATR_INTERFACE_D].present = true;
+  atr.T[1][ATR_INTERFACE_D].value   = SC_PROTOCOL_T1;
+  atr.T[2][ATR_INTERFACE_A].present = true;
+  atr.T[2][ATR_INTERFACE_A].value   = 0x00; /* IFS=0 → malformed */
+  TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed,
+                    atr_T1_specific_get_IFS(&atr, &IFS));
+}
+
+void test_atr_t1_ifs_ff_is_malformed(void) {
+  atr_t   atr;
+  uint8_t IFS;
+  atr_init(&atr);
+  atr.T[1][ATR_INTERFACE_D].present = true;
+  atr.T[1][ATR_INTERFACE_D].value   = SC_PROTOCOL_T1;
+  atr.T[2][ATR_INTERFACE_A].present = true;
+  atr.T[2][ATR_INTERFACE_A].value   = 0xFF; /* IFS=0xFF → malformed */
+  TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed,
+                    atr_T1_specific_get_IFS(&atr, &IFS));
+}
+
+void test_atr_t1_cbwi_present(void) {
+  atr_t   atr;
+  uint8_t CWI, BWI;
+  atr_init(&atr);
+  atr.T[1][ATR_INTERFACE_D].present = true;
+  atr.T[1][ATR_INTERFACE_D].value   = SC_PROTOCOL_T1;
+  atr.T[2][ATR_INTERFACE_B].present = true;
+  /* BWI=3, CWI=5 → value = (3<<4)|5 = 0x35 */
+  atr.T[2][ATR_INTERFACE_B].value = 0x35;
+  TEST_ASSERT_EQUAL(sc_Status_Success,
+                    atr_T1_specific_get_CBWI(&atr, &CWI, &BWI));
+  TEST_ASSERT_EQUAL(5, CWI);
+  TEST_ASSERT_EQUAL(3, BWI);
+}
+
+void test_atr_t1_cbwi_bwi_too_large(void) {
+  atr_t   atr;
+  uint8_t CWI, BWI;
+  atr_init(&atr);
+  atr.T[1][ATR_INTERFACE_D].present = true;
+  atr.T[1][ATR_INTERFACE_D].value   = SC_PROTOCOL_T1;
+  atr.T[2][ATR_INTERFACE_B].present = true;
+  atr.T[2][ATR_INTERFACE_B].value   = 0xA0; /* BWI=10 > 9 → malformed */
+  TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed,
+                    atr_T1_specific_get_CBWI(&atr, &CWI, &BWI));
+}
+
+void test_atr_t1_edc_present(void) {
+  atr_t   atr;
+  uint8_t EDC;
+  atr_init(&atr);
+  atr.T[1][ATR_INTERFACE_D].present = true;
+  atr.T[1][ATR_INTERFACE_D].value   = SC_PROTOCOL_T1;
+  atr.T[2][ATR_INTERFACE_C].present = true;
+  atr.T[2][ATR_INTERFACE_C].value   = 0x01; /* CRC */
+  TEST_ASSERT_EQUAL(sc_Status_Success, atr_T1_specific_get_EDC(&atr, &EDC));
+  TEST_ASSERT_EQUAL(SC_EDC_CRC, EDC);
+}
+
+/* ── ATR: TB1 present (programming voltage / current) ───────────────────── */
+
+void test_atr_with_tb1(void) {
+  /* T0=0x20: TB1 present, K=0 */
+  static const uint8_t raw[] = {0x3B, 0x20, 0x00};
+  slot_sim_setup(raw, sizeof(raw), NULL, 0);
+  setup_context();
+  atr_len = sizeof(atr_buf);
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_TRUE(ctx.params.ATR.T[0][ATR_INTERFACE_B].present);
+  TEST_ASSERT_EQUAL_HEX8(0x00, ctx.params.ATR.T[0][ATR_INTERFACE_B].value);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_atr_minimal_t0);
@@ -199,5 +456,33 @@ int main(void) {
   RUN_TEST(test_atr_ta1_tc1);
   RUN_TEST(test_atr_bad_tck);
   RUN_TEST(test_atr_timeout);
+  RUN_TEST(test_atr_with_tb1);
+  RUN_TEST(test_atr_get_convention_direct);
+  RUN_TEST(test_atr_get_convention_reverse);
+  RUN_TEST(test_atr_get_convention_invalid);
+  RUN_TEST(test_atr_get_I_default);
+  RUN_TEST(test_atr_get_I_from_tb1);
+  RUN_TEST(test_atr_get_P_default);
+  RUN_TEST(test_atr_get_P_from_tb1);
+  RUN_TEST(test_atr_get_P_from_tb2);
+  RUN_TEST(test_atr_get_wi_from_tc2);
+  RUN_TEST(test_atr_get_wi_tc2_zero_is_malformed);
+  RUN_TEST(test_sc_defs_get_fi_reserved);
+  RUN_TEST(test_sc_defs_get_di_reserved);
+  RUN_TEST(test_sc_defs_get_fmax_reserved);
+  RUN_TEST(test_sc_defs_get_i_reserved);
+  RUN_TEST(test_sc_defs_get_min_etu_ns_valid);
+  RUN_TEST(test_sc_defs_get_fi_out_of_bounds);
+  RUN_TEST(test_sc_defs_get_di_out_of_bounds);
+  RUN_TEST(test_sc_defs_get_fmax_out_of_bounds);
+  RUN_TEST(test_sc_defs_get_i_out_of_bounds);
+  RUN_TEST(test_sc_defs_get_min_etu_ns_reserved_fi);
+  RUN_TEST(test_sc_defs_get_min_etu_ns_reserved_di);
+  RUN_TEST(test_atr_t1_ifs_present);
+  RUN_TEST(test_atr_t1_ifs_zero_is_malformed);
+  RUN_TEST(test_atr_t1_ifs_ff_is_malformed);
+  RUN_TEST(test_atr_t1_cbwi_present);
+  RUN_TEST(test_atr_t1_cbwi_bwi_too_large);
+  RUN_TEST(test_atr_t1_edc_present);
   return UNITY_END();
 }

@@ -213,6 +213,8 @@ prepare_pps(sc_context_t *context, uint8_t *pps, uint32_t *pps_len) {
         }
       } else if (st != sc_Status_Unsuported_feature)
         return st;
+      else
+        st = sc_Status_Success;
 
       // pps1
       pps[PPS0_IDX] |= PPS0_PPS1_PRES;
