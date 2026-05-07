@@ -9,6 +9,8 @@
 #include "sc_debug.h"
 #include "sc_defs.h"
 #include "slot_itf.h"
+#include <stdio.h>
+#include <string.h>
 
 /************************************************************************************
  * Private defines
@@ -26,6 +28,8 @@ static struct reg_t {
 /************************************************************************************
  * Public variables
  ************************************************************************************/
+
+sc_debug_hook_t g_sc_debug_hook = NULL;
 
 /************************************************************************************
  * Private functions
@@ -307,6 +311,10 @@ static sc_Status finalize_pps(sc_context_t *context,
  * Public functions
  ************************************************************************************/
 
+void smartcard_Set_Debug_Hook(sc_debug_hook_t hook) {
+  g_sc_debug_hook = hook;
+}
+
 sc_Status smartcard_Init(void) {
   uint8_t slotIdx;
 
@@ -470,13 +478,18 @@ sc_Status smartcard_Power_On(uint32_t  slot,
   /* Update context to get real frequency */
   slotContext->slot->get_frequency(&(slotContext->params.frequency));
 
-  /* Some debug */
-  dbg_info("Slot openned with following parameters :");
-  dbg_info("  Protocol  : T%d", slotContext->params.default_protocol);
-  dbg_info("  F         : %d", slotContext->params.F);
-  dbg_info("  D         : %d", slotContext->params.D);
-  dbg_info("  Frequency : %d/%d Hz", slotContext->params.frequency,
-           slotContext->params.fmax);
+  if (g_sc_debug_hook) {
+    char buf[80];
+    snprintf(buf, sizeof(buf), "T%d F=%lu D=%lu freq=%lu/%lu Hz",
+             (int)slotContext->params.default_protocol,
+             (unsigned long)slotContext->params.F,
+             (unsigned long)slotContext->params.D,
+             (unsigned long)slotContext->params.frequency,
+             (unsigned long)slotContext->params.fmax);
+    g_sc_debug_hook("power_on", NULL, 0);
+    g_sc_debug_hook("power_on_params", (const uint8_t *)buf,
+                    (uint32_t)strlen(buf));
+  }
 
   /* Update card state*/
   if (slotContext->params.default_protocol == SC_PROTOCOL_T0) {

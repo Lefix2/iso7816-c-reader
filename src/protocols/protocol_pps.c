@@ -1,3 +1,4 @@
+#include "sc_debug.h"
 /*
  * Protocol PPS
  * Expose API for Protocol and Parameters Selection
@@ -6,7 +7,6 @@
 #include <string.h>
 
 #include "protocols.h"
-#include "sc_debug.h"
 #include "sc_defs.h"
 #include "slot_itf.h"
 
@@ -50,7 +50,7 @@ static sc_Status protocol_pps_transact(sc_context_t *context,
 
   *receive_length = 0;
 
-  dbg_buff_comm("PPS >> ", (char *)send_buffer, send_length);
+  SC_DBG_COMM("PPS >> ", (char *)send_buffer, send_length);
 
   if ((send_length < 2) || (context == (void *)0) ||
       (context->slot == (void *)0)) {
@@ -98,7 +98,7 @@ static sc_Status protocol_pps_transact(sc_context_t *context,
     return sc_Status_PPS_Handshake_Error;
   }
 
-  dbg_buff_comm("PPS << ", (char *)receive_buffer, *receive_length);
+  SC_DBG_COMM("PPS << ", (char *)receive_buffer, *receive_length);
 
   return sc_Status_Success;
 }

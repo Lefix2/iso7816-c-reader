@@ -1,3 +1,4 @@
+#include "sc_debug.h"
 /*
  * Protocol TPDU T1
  * Expose API for Transport Protocol Data Unit in protocol T1
@@ -5,7 +6,6 @@
 
 #include "maths/EDC.h"
 #include "protocols.h"
-#include "sc_debug.h"
 #include "sc_defs.h"
 #include "slot_itf.h"
 
@@ -157,7 +157,7 @@ static sc_Status protocol_TPDU_T1_transact(sc_context_t *context,
   ret   = sc_Status_Success;
   state = TPDU_T1_start_of_transaction;
 
-  dbg_buff_comm("T1 TPDU >> ", (char *)send_buffer, len_to_send);
+  SC_DBG_COMM("T1 TPDU >> ", (char *)send_buffer, len_to_send);
 
   while (state != TPDU_T1_exit) {
 
@@ -295,7 +295,7 @@ static sc_Status protocol_TPDU_T1_transact(sc_context_t *context,
       }
 
       if (ret == sc_Status_Success) {
-        dbg_buff_comm("T1 TPDU << ", (char *)receive_buffer, *receive_length);
+        SC_DBG_COMM("T1 TPDU << ", (char *)receive_buffer, *receive_length);
       }
 
       state = TPDU_T1_exit;

@@ -1,3 +1,4 @@
+#include "sc_debug.h"
 /*
  * Protocol ATR
  * Expose API for Answer To Reset
@@ -6,7 +7,6 @@
 #include <string.h>
 
 #include "protocols.h"
-#include "sc_debug.h"
 #include "sc_defs.h"
 #include "slot_itf.h"
 
@@ -190,7 +190,7 @@ static sc_Status protocol_atr_transact(sc_context_t *context,
 
   context->params.ATR = atr;
 
-  dbg_buff_comm("ATR << ", (char *)receive_buffer, *receive_length);
+  SC_DBG_COMM("ATR << ", (char *)receive_buffer, *receive_length);
 
   return sc_Status_Success;
 }

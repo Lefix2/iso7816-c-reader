@@ -1,10 +1,10 @@
+#include "sc_debug.h"
 /*
  * Protocol APDU T0
  * Expose API for Application Protocol Data Unit in protocol T0
  */
 
 #include "protocols.h"
-#include "sc_debug.h"
 #include "sc_defs.h"
 #include "slot_itf.h"
 #include <string.h>
@@ -167,7 +167,7 @@ static sc_Status protocol_APDU_T0_transact(sc_context_t *context,
   ret   = sc_Status_Success;
   state = APDU_T0_start_of_transaction;
 
-  dbg_buff_comm("T0 APDU >> ", (char *)send_buffer, len_to_send);
+  SC_DBG_COMM("T0 APDU >> ", (char *)send_buffer, len_to_send);
 
   while (state != APDU_T0_exit) {
 
@@ -359,7 +359,7 @@ static sc_Status protocol_APDU_T0_transact(sc_context_t *context,
         /* Add last Sw1 Sw2 */
         (*receive_length) += 2;
 
-        dbg_buff_comm("T0 APDU << ", (char *)receive_buffer, *receive_length);
+        SC_DBG_COMM("T0 APDU << ", (char *)receive_buffer, *receive_length);
       }
 
       state = APDU_T0_exit;

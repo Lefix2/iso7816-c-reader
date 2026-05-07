@@ -21,6 +21,11 @@
  * Public types
  ************************************************************************************/
 
+/* hook(tag, data, len): data==NULL and len==0 for text-only messages */
+typedef void (*sc_debug_hook_t)(const char    *tag,
+                                const uint8_t *data,
+                                uint32_t       len);
+
 /************************************************************************************
  * Public variables
  ************************************************************************************/
@@ -30,6 +35,8 @@
  ************************************************************************************/
 
 sc_Status smartcard_Init(void);
+
+void smartcard_Set_Debug_Hook(sc_debug_hook_t hook);
 
 sc_Status smartcard_Register_slot(slot_itf_t *slot_interface, uint32_t *slot);
 
