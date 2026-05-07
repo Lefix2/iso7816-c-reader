@@ -460,6 +460,226 @@ void test_apdu_t1_abort_request(void) {
   TEST_ASSERT_NOT_EQUAL(sc_Status_APDU_T1_Bad_Response, r);
 }
 
+/* ── Invalid params (tiny recv buffer) → Invalid_Parameter ──────────────── */
+void test_apdu_t1_invalid_params(void) {
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  setup_t1_context();
+  slot_sim_setup(NULL, 0, NULL, 0);
+
+  uint8_t  recv[16];
+  uint32_t recv_len = 3; /* < 4 → Invalid_Parameter */
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, r);
+}
+
+/* ── get_IFSD failure → error propagated ─────────────────────────────────── */
+void test_apdu_t1_get_ifsd_fail(void) {
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  setup_t1_context();
+  slot_sim_setup(NULL, 0, NULL, 0);
+  slot_sim_get_ctx()->get_ifsd_fail = 1;
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_NOT_EQUAL(sc_Status_Success, r);
+}
+
+/* ── Reader chaining: send data > IFSC triggers I_MORE bit ──────────────── */
+void test_apdu_t1_reader_chaining(void) {
+  /* 5-byte APDU with IFSC=2 forces reader to chain I-blocks */
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x05};
+
+  uint8_t  sim_rx[8];
+  uint32_t blen;
+  build_s_ifs_response(sim_rx, &blen, ATR_DEFAULT_IFS);
+
+  uint8_t tx_cap[512];
+  slot_sim_setup(sim_rx, blen, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+  ctx.params.IFSC = 2; /* force chaining: 5 bytes > IFSC=2 */
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_APDU_T1_Bad_Response, r);
+}
+
+/* ── IFS request not answered with S-block (card sends I-block instead) ─── */
+void test_apdu_t1_ifs_not_answered(void) {
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  /* Card sends I-block in response to our IFS S-request */
+  uint8_t  sim_rx[8];
+  uint32_t blen;
+  uint8_t  resp_data[] = {0x90, 0x00};
+  build_i_block_response(sim_rx, &blen, 0, resp_data, sizeof(resp_data));
+
+  uint8_t tx_cap[512];
+  slot_sim_setup(sim_rx, blen, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_APDU_T1_Bad_Response, r);
+}
+
+/* ── Buffer too small for card response → Buffer_To_Small ───────────────── */
+void test_apdu_t1_buffer_too_small(void) {
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  uint8_t  sim_rx[64];
+  uint32_t rx_pos = 0;
+  uint32_t blen;
+
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  /* Card sends 12 bytes of data — larger than recv buffer */
+  uint8_t big_data[12] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, big_data, sizeof(big_data));
+  rx_pos += blen;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[8]; /* too small for 12 bytes */
+  uint32_t recv_len = sizeof(recv); /* buffer_size=8, card sends 12 */
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Buffer_To_Small, r);
+}
+
+/* ── Invalid R-block (non-zero LEN) → error, retries, then Bad_Response ─── */
+void test_apdu_t1_r_block_invalid_len(void) {
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  uint8_t  sim_rx[64];
+  uint32_t rx_pos = 0;
+  uint32_t blen;
+
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  /* Invalid R-block: LEN=1 (must be 0) */
+  sim_rx[rx_pos + 0] = 0x00;
+  sim_rx[rx_pos + 1] = 0x80; /* R-block, ACK, N(R)=0 */
+  sim_rx[rx_pos + 2] = 0x01; /* invalid: R-block must have LEN=0 */
+  sim_rx[rx_pos + 3] = 0xFF;
+  sim_rx[rx_pos + 4] = lrc_of(sim_rx + rx_pos, 4);
+  rx_pos += 5;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_NOT_EQUAL(sc_Status_Success, r);
+}
+
+/* ── Card sends S(IFS request) → reader updates IFSC and responds ────────── */
+void test_apdu_t1_card_ifs_request(void) {
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  uint8_t  sim_rx[64];
+  uint32_t rx_pos = 0;
+  uint32_t blen;
+
+  /* 1. S(IFS response) — reply to our IFS request (IFSD=32) */
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  /* 2. S(IFS request from card, IFSC=80=0x50): NAD=00 PCB=C1 LEN=01 data=50 */
+  sim_rx[rx_pos + 0] = 0x00;
+  sim_rx[rx_pos + 1] = 0xC1; /* PCB_S_BLOCK | PCB_S_IFS */
+  sim_rx[rx_pos + 2] = 0x01;
+  sim_rx[rx_pos + 3] = 0x50;
+  sim_rx[rx_pos + 4] = lrc_of(sim_rx + rx_pos, 4);
+  rx_pos += 5;
+
+  /* 3. I-block response from card: N(S)=0, data=[0x90, 0x00] */
+  uint8_t resp[] = {0x90, 0x00};
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, resp, sizeof(resp));
+  rx_pos += blen;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(0x50, ctx.params.IFSC); /* updated by IFS request */
+}
+
+/* ── CRC mode + EDC error → R-block built with CRC EDC ──────────────────── */
+void test_apdu_t1_crc_with_edc_error(void) {
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x02};
+
+  uint8_t  sim_rx[128];
+  uint32_t rx_pos = 0;
+  uint32_t blen;
+
+  /* IFS response (CRC mode) */
+  build_s_ifs_response_crc(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  /* Bad I-block: wrong CRC */
+  sim_rx[rx_pos + 0] = 0x00;
+  sim_rx[rx_pos + 1] = 0x00;
+  sim_rx[rx_pos + 2] = 0x02;
+  sim_rx[rx_pos + 3] = 0xDE;
+  sim_rx[rx_pos + 4] = 0xAD;
+  sim_rx[rx_pos + 5] = 0x00; /* wrong CRC high byte */
+  sim_rx[rx_pos + 6] = 0x00; /* wrong CRC low byte */
+  rx_pos += 7;
+
+  /* Valid I-block response after R(EDC_ERROR) retry */
+  uint8_t resp_data[] = {0xDE, 0xAD, 0x90, 0x00};
+  build_i_block_crc(sim_rx + rx_pos, &blen, 0, resp_data, sizeof(resp_data));
+  rx_pos += blen;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+  ctx.params.EDC = SC_EDC_CRC;
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_apdu_t1_single_exchange);
@@ -472,5 +692,13 @@ int main(void) {
   RUN_TEST(test_apdu_t1_crc_mode);
   RUN_TEST(test_apdu_t1_card_retransmit);
   RUN_TEST(test_apdu_t1_abort_request);
+  RUN_TEST(test_apdu_t1_invalid_params);
+  RUN_TEST(test_apdu_t1_get_ifsd_fail);
+  RUN_TEST(test_apdu_t1_reader_chaining);
+  RUN_TEST(test_apdu_t1_ifs_not_answered);
+  RUN_TEST(test_apdu_t1_buffer_too_small);
+  RUN_TEST(test_apdu_t1_r_block_invalid_len);
+  RUN_TEST(test_apdu_t1_card_ifs_request);
+  RUN_TEST(test_apdu_t1_crc_with_edc_error);
   return UNITY_END();
 }

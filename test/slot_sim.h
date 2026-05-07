@@ -31,6 +31,13 @@ typedef struct {
   uint32_t        guardtime_etu;
   sc_convention_t convention;
   uint8_t         IFSD;
+
+  /* Error injection — cleared to 0 by slot_sim_setup (no error).
+   * Countdown: decremented on each call; error injected when it hits 0. */
+  uint8_t set_timeout_fail_countdown;
+  uint8_t set_guardtime_fail_countdown;
+  uint8_t send_fail_countdown;
+  uint8_t get_ifsd_fail;
 } slot_sim_ctx_t;
 
 /**
