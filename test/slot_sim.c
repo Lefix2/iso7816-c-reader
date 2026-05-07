@@ -1,5 +1,4 @@
 #include "slot_sim.h"
-#include "sc_defs.h"
 #include "slot_itf.h"
 
 static slot_sim_ctx_t g_ctx;
@@ -91,11 +90,11 @@ static sc_Status sim_get_timeout_etu(uint32_t *t) {
   *t = g_ctx.timeout_etu;
   return sc_Status_Success;
 }
-static sc_Status sim_set_guardtime_etu(uint8_t g) {
+static sc_Status sim_set_guardtime_etu(uint32_t g) {
   g_ctx.guardtime_etu = g;
   return sc_Status_Success;
 }
-static sc_Status sim_get_guardtime_etu(uint8_t *g) {
+static sc_Status sim_get_guardtime_etu(uint32_t *g) {
   *g = g_ctx.guardtime_etu;
   return sc_Status_Success;
 }

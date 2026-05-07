@@ -2,8 +2,8 @@
 
 #include "unity.h"
 
-#include "maths/EDC.h"
-#include "protocols/protocols.h"
+#include "EDC.h"
+#include "protocols.h"
 #include "sc_context.h"
 #include "sc_defs.h"
 #include "slot_sim.h"
@@ -274,9 +274,9 @@ void test_apdu_t1_bad_nad(void) {
 
   /* I-block response with bad NAD: 0x21 instead of 0x00 */
   uint8_t resp_data[] = {0xFF, 0x90, 0x00};
-  sim_rx[rx_pos + 0] = 0x21; /* wrong NAD */
-  sim_rx[rx_pos + 1] = 0x00; /* PCB I-block N(S)=0 */
-  sim_rx[rx_pos + 2] = sizeof(resp_data);
+  sim_rx[rx_pos + 0]  = 0x21; /* wrong NAD */
+  sim_rx[rx_pos + 1]  = 0x00; /* PCB I-block N(S)=0 */
+  sim_rx[rx_pos + 2]  = sizeof(resp_data);
   memcpy(sim_rx + rx_pos + 3, resp_data, sizeof(resp_data));
   sim_rx[rx_pos + 3 + sizeof(resp_data)] =
       lrc_of(sim_rx + rx_pos, 3 + sizeof(resp_data));
@@ -313,22 +313,23 @@ void test_apdu_t1_bad_state(void) {
 }
 
 /* ── CRC EDC mode: build_I_block/S_block/R_block with CRC-16 ─────────────── */
-static void build_s_ifs_response_crc(uint8_t *block, uint32_t *len, uint8_t ifsd) {
-  block[0]      = 0x00;
-  block[1]      = 0xE1; /* S(IFS response) */
-  block[2]      = 0x01;
-  block[3]      = ifsd;
-  uint16_t crc  = EDC_CRC(block, 4);
-  block[4]      = (uint8_t)(crc >> 8);
-  block[5]      = (uint8_t)(crc & 0xFF);
-  *len          = 6;
+static void
+build_s_ifs_response_crc(uint8_t *block, uint32_t *len, uint8_t ifsd) {
+  block[0]     = 0x00;
+  block[1]     = 0xE1; /* S(IFS response) */
+  block[2]     = 0x01;
+  block[3]     = ifsd;
+  uint16_t crc = EDC_CRC(block, 4);
+  block[4]     = (uint8_t)(crc >> 8);
+  block[5]     = (uint8_t)(crc & 0xFF);
+  *len         = 6;
 }
 
 static void build_i_block_crc(uint8_t       *block,
-                               uint32_t      *len,
-                               uint8_t        ns,
-                               const uint8_t *data,
-                               uint8_t        data_len) {
+                              uint32_t      *len,
+                              uint8_t        ns,
+                              const uint8_t *data,
+                              uint8_t        data_len) {
   block[0] = 0x00;
   block[1] = (uint8_t)(ns << 6);
   block[2] = data_len;
@@ -373,7 +374,8 @@ void test_apdu_t1_crc_mode(void) {
   TEST_ASSERT_EQUAL_HEX8(0xAD, recv[1]);
 }
 
-/* ── Card sends R(0) requesting retransmit: exercises process_R_block ──────── */
+/* ── Card sends R(0) requesting retransmit: exercises process_R_block ────────
+ */
 void test_apdu_t1_card_retransmit(void) {
   /* Case 2S: Le=1. After IFS exchange, card sends R(Nr=0) requesting
    * retransmission of our I-block, then sends a good I-block response. */
@@ -396,7 +398,8 @@ void test_apdu_t1_card_retransmit(void) {
 
   /* Good I-block response after retransmit: N(S)=0, data = [FF 90 00] */
   uint8_t resp_data[] = {0xFF, 0x90, 0x00};
-  build_i_block_response(sim_rx + rx_pos, &blen, 0, resp_data, sizeof(resp_data));
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, resp_data,
+                         sizeof(resp_data));
   rx_pos += blen;
 
   uint8_t tx_cap[256];
@@ -439,7 +442,8 @@ void test_apdu_t1_abort_request(void) {
 
   /* After abort response, card sends I-block with SW = [90 00] */
   uint8_t resp_data[] = {0x90, 0x00};
-  build_i_block_response(sim_rx + rx_pos, &blen, 0, resp_data, sizeof(resp_data));
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, resp_data,
+                         sizeof(resp_data));
   rx_pos += blen;
 
   uint8_t tx_cap[256];

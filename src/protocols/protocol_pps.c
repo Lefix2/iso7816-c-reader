@@ -1,4 +1,3 @@
-#include "sc_debug.h"
 /*
  * Protocol PPS
  * Expose API for Protocol and Parameters Selection
@@ -6,9 +5,11 @@
 
 #include <string.h>
 
-#include "protocols.h"
 #include "sc_defs.h"
 #include "slot_itf.h"
+
+#include "protocols.h"
+#include "sc_debug.h"
 
 /************************************************************************************
  * Private defines
@@ -37,11 +38,11 @@ static uint8_t pps_getlen(uint8_t PPS0) {
   return len;
 }
 
-static sc_Status protocol_pps_transact(sc_context_t *context,
+static sc_Status protocol_pps_transact(sc_context_t  *context,
                                        const uint8_t *send_buffer,
-                                       uint32_t      send_length,
-                                       uint8_t      *receive_buffer,
-                                       uint32_t     *receive_length) {
+                                       uint32_t       send_length,
+                                       uint8_t       *receive_buffer,
+                                       uint32_t      *receive_length) {
   sc_Status  ret;
   slot_itf_t slot;
 

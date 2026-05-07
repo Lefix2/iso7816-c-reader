@@ -1,9 +1,7 @@
-#include <string.h>
-
 #include "unity.h"
 
-#include "maths/EDC.h"
-#include "protocols/protocols.h"
+#include "EDC.h"
+#include "protocols.h"
 #include "sc_context.h"
 #include "sc_defs.h"
 #include "slot_sim.h"
@@ -37,26 +35,26 @@ static void build_send_i_block_lrc(uint8_t  *block,
                                    uint32_t *len,
                                    uint8_t   ns,
                                    uint8_t   data_byte) {
-  block[0]     = 0x00;
-  block[1]     = (uint8_t)(ns << 6);
-  block[2]     = 0x01;
-  block[3]     = data_byte;
-  block[4]     = EDC_LRC(block, 4);
-  *len         = 5;
+  block[0] = 0x00;
+  block[1] = (uint8_t)(ns << 6);
+  block[2] = 0x01;
+  block[3] = data_byte;
+  block[4] = EDC_LRC(block, 4);
+  *len     = 5;
 }
 
 static void build_send_i_block_crc(uint8_t  *block,
                                    uint32_t *len,
                                    uint8_t   ns,
                                    uint8_t   data_byte) {
-  block[0]      = 0x00;
-  block[1]      = (uint8_t)(ns << 6);
-  block[2]      = 0x01;
-  block[3]      = data_byte;
-  uint16_t crc  = EDC_CRC(block, 4);
-  block[4]      = (uint8_t)(crc >> 8);
-  block[5]      = (uint8_t)(crc & 0xFF);
-  *len          = 6;
+  block[0]     = 0x00;
+  block[1]     = (uint8_t)(ns << 6);
+  block[2]     = 0x01;
+  block[3]     = data_byte;
+  uint16_t crc = EDC_CRC(block, 4);
+  block[4]     = (uint8_t)(crc >> 8);
+  block[5]     = (uint8_t)(crc & 0xFF);
+  *len         = 6;
 }
 
 void setUp(void) {}
@@ -69,7 +67,7 @@ void test_tpdu_t1_invalid_params(void) {
 
   setup_t1_context();
   slot_sim_setup(NULL, 0, NULL, 0);
-  len       = 3; /* < 4 */
+  len         = 3; /* < 4 */
   sc_Status r = protocol_TPDU_T1.Transact(&ctx, block, 5, block, &len);
   TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, r);
 }
@@ -90,8 +88,8 @@ void test_tpdu_t1_bad_state(void) {
 /* ── len_to_send mismatch with LEN field → Bad_Length ───────────────────── */
 void test_tpdu_t1_bad_length(void) {
   /* LEN byte says 1, but we pass 7 bytes (not 3+1+1=5) */
-  uint8_t send[7] = {0x00, 0x00, 0x01, 0xAA, 0xAB, 0x00, 0x00};
-  uint8_t recv[32];
+  uint8_t  send[7] = {0x00, 0x00, 0x01, 0xAA, 0xAB, 0x00, 0x00};
+  uint8_t  recv[32];
   uint32_t recv_len = sizeof(recv);
 
   setup_t1_context();
@@ -132,8 +130,9 @@ void test_tpdu_t1_crc_mode(void) {
   /* Build card response with correct CRC */
   uint8_t  resp_data[4] = {0x00, 0x00, 0x01, 0xFF};
   uint16_t crc          = EDC_CRC(resp_data, 4);
-  uint8_t  sim_rx[6]    = {resp_data[0], resp_data[1], resp_data[2], resp_data[3],
-                            (uint8_t)(crc >> 8), (uint8_t)(crc & 0xFF)};
+  uint8_t  sim_rx[6]    = {resp_data[0],        resp_data[1],
+                           resp_data[2],        resp_data[3],
+                           (uint8_t)(crc >> 8), (uint8_t)(crc & 0xFF)};
 
   uint8_t  recv[32];
   uint32_t recv_len = sizeof(recv);
@@ -154,7 +153,8 @@ void test_tpdu_t1_bad_edc_crc(void) {
   build_send_i_block_crc(send, &slen, 0, 0xAA);
 
   /* Card response with deliberately wrong CRC */
-  uint8_t sim_rx[6] = {0x00, 0x00, 0x01, 0xFF, 0x00, 0x00}; /* CRC=0x0000, wrong */
+  uint8_t sim_rx[6] = {0x00, 0x00, 0x01,
+                       0xFF, 0x00, 0x00}; /* CRC=0x0000, wrong */
 
   uint8_t  recv[32];
   uint32_t recv_len = sizeof(recv);

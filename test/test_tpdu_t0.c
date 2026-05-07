@@ -1,6 +1,6 @@
 #include "unity.h"
 
-#include "protocols/protocols.h"
+#include "protocols.h"
 #include "sc_context.h"
 #include "sc_defs.h"
 #include "slot_sim.h"
@@ -32,7 +32,7 @@ void test_tpdu_t0_invalid_params(void) {
 
   setup_t0_context();
   slot_sim_setup(NULL, 0, NULL, 0);
-  len       = 1; /* < 2 */
+  len         = 1; /* < 2 */
   sc_Status r = protocol_TPDU_T0.Transact(&ctx, hdr, 5, buf, &len);
   TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, r);
 }
@@ -78,7 +78,8 @@ void test_tpdu_t0_bad_header(void) {
   TEST_ASSERT_EQUAL(sc_Status_TPDU_T0_Bad_Header, r);
 }
 
-/* ── Complete Case-3 TPDU (send only): exercises normal send path ─────────── */
+/* ── Complete Case-3 TPDU (send only): exercises normal send path ───────────
+ */
 void test_tpdu_t0_send_path(void) {
   /* TPDU: header [00 D6 00 00 02] + 2 data bytes, rcv=2 (SW only) */
   uint8_t  tpdu[7] = {0x00, 0xD6, 0x00, 0x00, 0x02, 0xAA, 0xBB};
@@ -92,7 +93,8 @@ void test_tpdu_t0_send_path(void) {
   setup_t0_context();
   slot_sim_setup(card_resp, sizeof(card_resp), tx_cap, sizeof(tx_cap));
 
-  sc_Status r = protocol_TPDU_T0.Transact(&ctx, tpdu, sizeof(tpdu), recv, &recv_len);
+  sc_Status r =
+      protocol_TPDU_T0.Transact(&ctx, tpdu, sizeof(tpdu), recv, &recv_len);
 
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   TEST_ASSERT_EQUAL(2, recv_len);
@@ -103,7 +105,7 @@ void test_tpdu_t0_send_path(void) {
 /* ── Complete Case-2 TPDU (receive only): exercises receive path ─────────── */
 void test_tpdu_t0_receive_path(void) {
   /* TPDU: header [00 B0 00 00 02], rcv=2+2=4 (2 data + 2 SW) */
-  uint8_t  hdr[5]   = {0x00, 0xB0, 0x00, 0x00, 0x02};
+  uint8_t  hdr[5] = {0x00, 0xB0, 0x00, 0x00, 0x02};
   uint8_t  recv[8];
   uint32_t recv_len = 4;
 
@@ -114,7 +116,8 @@ void test_tpdu_t0_receive_path(void) {
   setup_t0_context();
   slot_sim_setup(card_resp, sizeof(card_resp), tx_cap, sizeof(tx_cap));
 
-  sc_Status r = protocol_TPDU_T0.Transact(&ctx, hdr, sizeof(hdr), recv, &recv_len);
+  sc_Status r =
+      protocol_TPDU_T0.Transact(&ctx, hdr, sizeof(hdr), recv, &recv_len);
 
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   TEST_ASSERT_EQUAL(4, recv_len);

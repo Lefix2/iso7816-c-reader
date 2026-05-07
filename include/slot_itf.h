@@ -8,6 +8,7 @@
 
 #include "sc_defs.h"
 #include "sc_status.h"
+#include <stdint.h>
 
 /************************************************************************************
  * Public defines
@@ -45,9 +46,9 @@ typedef struct {
 
   sc_Status (*get_timeout_etu)(uint32_t *timeout);
 
-  sc_Status (*set_guardtime_etu)(uint8_t guardtime);
+  sc_Status (*set_guardtime_etu)(uint32_t guardtime);
 
-  sc_Status (*get_guardtime_etu)(uint8_t *guardtime);
+  sc_Status (*get_guardtime_etu)(uint32_t *guardtime);
 
   sc_Status (*set_convention)(sc_convention_t convention);
 

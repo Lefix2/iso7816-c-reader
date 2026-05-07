@@ -1,6 +1,6 @@
 #include "unity.h"
 
-#include "protocols/protocols.h"
+#include "protocols.h"
 #include "sc_context.h"
 #include "sc_defs.h"
 #include "slot_sim.h"
@@ -201,17 +201,18 @@ void test_apdu_t0_malformed(void) {
 
 /* ── NULL context → Invalid_Parameter ───────────────────────────────────── */
 void test_apdu_t0_null_context(void) {
-  uint8_t  apdu[]    = {0x00, 0x20, 0x00, 0x00};
+  uint8_t  apdu[] = {0x00, 0x20, 0x00, 0x00};
   uint8_t  recv[16];
-  uint32_t recv_len  = sizeof(recv);
+  uint32_t recv_len = sizeof(recv);
 
-  sc_Status r = protocol_APDU_T0.Transact(NULL, apdu, sizeof(apdu), recv, &recv_len);
+  sc_Status r =
+      protocol_APDU_T0.Transact(NULL, apdu, sizeof(apdu), recv, &recv_len);
   TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, r);
 }
 
 /* ── Wrong protocol state → Bad_State ───────────────────────────────────── */
 void test_apdu_t0_bad_state(void) {
-  uint8_t  apdu[]   = {0x00, 0x20, 0x00, 0x00};
+  uint8_t apdu[] = {0x00, 0x20, 0x00, 0x00};
   slot_sim_setup(NULL, 0, NULL, 0);
   setup_t0_context();
   ctx.params.state = sc_state_active_on_t1;
@@ -219,7 +220,8 @@ void test_apdu_t0_bad_state(void) {
   uint8_t  recv[16];
   uint32_t recv_len = sizeof(recv);
 
-  sc_Status r = protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
   TEST_ASSERT_EQUAL(sc_Status_Bad_State, r);
 }
 
@@ -232,7 +234,8 @@ void test_apdu_t0_buffer_too_small_for_ne(void) {
   uint8_t  recv[8]; /* 8 < 10+2=12 */
   uint32_t recv_len = sizeof(recv);
 
-  sc_Status r = protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
   TEST_ASSERT_EQUAL(sc_Status_Buffer_To_Small, r);
 }
 
@@ -247,7 +250,8 @@ void test_apdu_t0_case2e(void) {
   uint8_t  recv[16];
   uint32_t recv_len = sizeof(recv);
 
-  sc_Status r = protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
 
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   TEST_ASSERT_EQUAL(5, recv_len); /* 3 data + 2 SW */
@@ -270,7 +274,8 @@ void test_apdu_t0_case3e_small(void) {
   uint8_t  recv[16];
   uint32_t recv_len = sizeof(recv);
 
-  sc_Status r = protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
 
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   TEST_ASSERT_EQUAL(2, recv_len); /* SW only */
@@ -279,7 +284,8 @@ void test_apdu_t0_case3e_small(void) {
 /* ── Case 4E small Nc: extended send+receive, Nc=2<256 ──────────────────── */
 void test_apdu_t0_case4e_small(void) {
   /* C5=0, C6C7=2, n==9+2 → Case_4E, Ne=1, then Nc<256 → Case_4S → Send */
-  uint8_t apdu[] = {0x00, 0x88, 0x00, 0x00, 0x00, 0x00, 0x02, 0xAA, 0xBB, 0x00, 0x01};
+  uint8_t              apdu[]      = {0x00, 0x88, 0x00, 0x00, 0x00, 0x00,
+                                      0x02, 0xAA, 0xBB, 0x00, 0x01};
   static const uint8_t card_resp[] = {0x88, 0x90, 0x00};
   uint8_t              tx_cap[32];
   slot_sim_setup(card_resp, sizeof(card_resp), tx_cap, sizeof(tx_cap));
@@ -288,7 +294,8 @@ void test_apdu_t0_case4e_small(void) {
   uint8_t  recv[16];
   uint32_t recv_len = sizeof(recv);
 
-  sc_Status r = protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
 
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   TEST_ASSERT_EQUAL(2, recv_len); /* 9000 patch: ends immediately */
@@ -304,13 +311,14 @@ void test_apdu_t0_malformed_extended(void) {
   uint8_t  recv[16];
   uint32_t recv_len = sizeof(recv);
 
-  sc_Status r = protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
   TEST_ASSERT_EQUAL(sc_Status_APDU_T0_Malformed, r);
 }
 
 /* ── SW1=0x91: non-9000 0x9X terminates transaction as-is ───────────────── */
 void test_apdu_t0_sw_9xyz(void) {
-  uint8_t              apdu[]     = {0x00, 0x20, 0x00, 0x00};
+  uint8_t              apdu[]      = {0x00, 0x20, 0x00, 0x00};
   static const uint8_t card_resp[] = {0x91, 0x00};
   uint8_t              tx_cap[32];
   slot_sim_setup(card_resp, sizeof(card_resp), tx_cap, sizeof(tx_cap));
@@ -319,7 +327,8 @@ void test_apdu_t0_sw_9xyz(void) {
   uint8_t  recv[16];
   uint32_t recv_len = sizeof(recv);
 
-  sc_Status r = protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
 
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   TEST_ASSERT_EQUAL(2, recv_len);
@@ -329,7 +338,7 @@ void test_apdu_t0_sw_9xyz(void) {
 
 /* ── SW1=0x62: non-0x61/non-0x6C warning terminates transaction ──────────── */
 void test_apdu_t0_sw_6xyz(void) {
-  uint8_t              apdu[]     = {0x00, 0x20, 0x00, 0x00};
+  uint8_t              apdu[]      = {0x00, 0x20, 0x00, 0x00};
   static const uint8_t card_resp[] = {0x62, 0x00};
   uint8_t              tx_cap[32];
   slot_sim_setup(card_resp, sizeof(card_resp), tx_cap, sizeof(tx_cap));
@@ -338,7 +347,8 @@ void test_apdu_t0_sw_6xyz(void) {
   uint8_t  recv[16];
   uint32_t recv_len = sizeof(recv);
 
-  sc_Status r = protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
 
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   TEST_ASSERT_EQUAL(2, recv_len);
@@ -348,7 +358,7 @@ void test_apdu_t0_sw_6xyz(void) {
 
 /* ── NULL byte 0x60 from card before SW: exercises TPDU_T0 NULL-byte loop ── */
 void test_apdu_t0_null_byte_proc(void) {
-  uint8_t              apdu[]     = {0x00, 0x20, 0x00, 0x00};
+  uint8_t              apdu[]      = {0x00, 0x20, 0x00, 0x00};
   static const uint8_t card_resp[] = {0x60, 0x90, 0x00}; /* NULL then SW */
   uint8_t              tx_cap[32];
   slot_sim_setup(card_resp, sizeof(card_resp), tx_cap, sizeof(tx_cap));
@@ -357,7 +367,8 @@ void test_apdu_t0_null_byte_proc(void) {
   uint8_t  recv[16];
   uint32_t recv_len = sizeof(recv);
 
-  sc_Status r = protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
 
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   TEST_ASSERT_EQUAL(2, recv_len);
@@ -368,8 +379,13 @@ void test_apdu_t0_null_byte_proc(void) {
 /* ── Case 3E Envelope: Nc=256 exercises ENVELOPE TPDU loop ──────────────── */
 void test_apdu_t0_case3e_envelope(void) {
   uint8_t apdu[263];
-  apdu[0] = 0x00; apdu[1] = 0xD6; apdu[2] = 0x00; apdu[3] = 0x00;
-  apdu[4] = 0x00; apdu[5] = 0x01; apdu[6] = 0x00; /* extended Lc=256 */
+  apdu[0] = 0x00;
+  apdu[1] = 0xD6;
+  apdu[2] = 0x00;
+  apdu[3] = 0x00;
+  apdu[4] = 0x00;
+  apdu[5] = 0x01;
+  apdu[6] = 0x00; /* extended Lc=256 */
   for (int i = 0; i < 256; i++)
     apdu[7 + i] = (uint8_t)i;
 
@@ -382,7 +398,8 @@ void test_apdu_t0_case3e_envelope(void) {
   uint8_t  recv[16];
   uint32_t recv_len = sizeof(recv);
 
-  sc_Status r = protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
 
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   TEST_ASSERT_EQUAL(2, recv_len);
@@ -392,7 +409,8 @@ void test_apdu_t0_case3e_envelope(void) {
 
 /* ── Debug hook: SC_DBG_COMM fires when hook registered ─────────────────── */
 static int s_t0_hook_calls;
-static void t0_hook_counter(const char *tag, const uint8_t *data, uint32_t len) {
+static void
+t0_hook_counter(const char *tag, const uint8_t *data, uint32_t len) {
   (void)tag;
   (void)data;
   (void)len;
@@ -400,7 +418,7 @@ static void t0_hook_counter(const char *tag, const uint8_t *data, uint32_t len) 
 }
 
 void test_apdu_t0_with_debug_hook(void) {
-  uint8_t              apdu[]     = {0x00, 0x20, 0x00, 0x00};
+  uint8_t              apdu[]      = {0x00, 0x20, 0x00, 0x00};
   static const uint8_t card_resp[] = {0x90, 0x00};
   uint8_t              tx_cap[32];
   slot_sim_setup(card_resp, sizeof(card_resp), tx_cap, sizeof(tx_cap));
@@ -409,9 +427,10 @@ void test_apdu_t0_with_debug_hook(void) {
   s_t0_hook_calls = 0;
   smartcard_Set_Debug_Hook(t0_hook_counter);
 
-  uint8_t  recv[16];
-  uint32_t recv_len = sizeof(recv);
-  sc_Status r = protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  uint8_t   recv[16];
+  uint32_t  recv_len = sizeof(recv);
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
 
   smartcard_Set_Debug_Hook(NULL);
 

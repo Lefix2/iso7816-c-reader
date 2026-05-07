@@ -1,13 +1,14 @@
-#include "sc_debug.h"
 /*
  * Protocol APDU T0
  * Expose API for Application Protocol Data Unit in protocol T0
  */
 
-#include "protocols.h"
-#include "sc_defs.h"
-#include "slot_itf.h"
 #include <string.h>
+
+#include "sc_defs.h"
+
+#include "protocols.h"
+#include "sc_debug.h"
 
 /************************************************************************************
  * Private defines
@@ -61,7 +62,7 @@ static sc_Status APDU_T0_Decode(APDU_T0_state *state,
                                 uint32_t      *Ne) {
 
   uint8_t  C5;
-  uint32_t C6C7, Le;
+  uint16_t C6C7, Le;
 
   /* 1 */
   if (n == 4) {
@@ -88,7 +89,7 @@ static sc_Status APDU_T0_Decode(APDU_T0_state *state,
       return sc_Status_APDU_T0_Malformed;
     }
 
-    C6C7 = (buffer[C6_IDX] << 8) | (buffer[C7_IDX]);
+    C6C7 = (uint16_t)((buffer[C6_IDX] << 8) | buffer[C7_IDX]);
 
     /* 2E */
     if (n == 7) {
@@ -98,17 +99,17 @@ static sc_Status APDU_T0_Decode(APDU_T0_state *state,
       return sc_Status_Success;
     }
     /* 3E */
-    if (n == 7 + C6C7) {
+    if (n == 7U + C6C7) {
       (*Nc)    = C6C7;
       (*Ne)    = 0;
       (*state) = APDU_T0_Case_3E;
       return sc_Status_Success;
     }
     /* 4E */
-    if (n == 9 + C6C7) {
-      (*Nc)    = C6C7;
-      Le       = (buffer[8 + C6C7 - 1] << 8) | (buffer[9 + C6C7 - 1]);
-      (*Ne)    = (Le == 0 ? 65536 : Le);
+    if (n == 9U + C6C7) {
+      (*Nc) = C6C7;
+      Le    = (uint16_t)((buffer[8 + C6C7 - 1] << 8) | (buffer[9 + C6C7 - 1]));
+      (*Ne) = (Le == 0 ? 65536 : Le);
       (*state) = APDU_T0_Case_4E;
       return sc_Status_Success;
     }
@@ -222,7 +223,7 @@ static sc_Status protocol_APDU_T0_transact(sc_context_t  *context,
       /* When Nc<256 */
       /* TPDU = CLA INS P1 P2 P3=Nc {Nc Data bytes} */
       memcpy(TPDU_buffer, send_buffer, 4);
-      TPDU_buffer[P3_IDX] = Nc;
+      TPDU_buffer[P3_IDX] = (uint8_t)Nc;
 
       /* Copy data if there's some */
       memcpy(TPDU_buffer + TPDU_HEADER_SIZE, send_buffer + data_offset, Nc);
@@ -239,7 +240,7 @@ static sc_Status protocol_APDU_T0_transact(sc_context_t  *context,
     case APDU_T0_Receive:
       /* When Ne <= 255 or first command of extended cases */
       memcpy(TPDU_buffer, send_buffer, 4);
-      P3                  = MIN(256, Ne) == 256 ? 0 : MIN(256, Ne);
+      P3                  = MIN(256, Ne) == 256 ? 0 : (uint8_t)Ne;
       TPDU_buffer[P3_IDX] = P3;
 
       snd_len = TPDU_HEADER_SIZE;
@@ -252,7 +253,7 @@ static sc_Status protocol_APDU_T0_transact(sc_context_t  *context,
 
     case APDU_T0_Enveloppe:
       /* When Nc>=256 */
-      P3 = MIN(255, len_to_send - send_length);
+      P3 = (uint8_t)MIN(255, len_to_send - send_length);
 
       TPDU_buffer[CLA_IDX] = send_buffer[CLA_IDX];
       TPDU_buffer[INS_IDX] = INS_ENVELOPPE;
@@ -273,8 +274,9 @@ static sc_Status protocol_APDU_T0_transact(sc_context_t  *context,
 
     case APDU_T0_GetResponse:
       /* When Ne > 255 */
-      P3 = MIN(Nx, Ne - *receive_length) == 256 ? 0
-                                                : MIN(Nx, Ne - *receive_length);
+      P3 = MIN(Nx, Ne - *receive_length) == 256
+               ? 0
+               : (uint8_t)MIN(Nx, Ne - *receive_length);
 
       TPDU_buffer[CLA_IDX] = send_buffer[CLA_IDX];
       TPDU_buffer[INS_IDX] = INS_GET_RESPONSE;

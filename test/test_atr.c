@@ -1,6 +1,6 @@
 #include "unity.h"
 
-#include "protocols/protocols.h"
+#include "protocols.h"
 #include "sc_context.h"
 #include "sc_defs.h"
 #include "slot_sim.h"
@@ -189,7 +189,7 @@ void test_atr_timeout(void) {
 /* ── atr_get_convention ──────────────────────────────────────────────────── */
 
 void test_atr_get_convention_direct(void) {
-  atr_t          atr;
+  atr_t           atr;
   sc_convention_t conv;
   atr_init(&atr);
   atr.TS = 0x3B;
@@ -198,7 +198,7 @@ void test_atr_get_convention_direct(void) {
 }
 
 void test_atr_get_convention_reverse(void) {
-  atr_t          atr;
+  atr_t           atr;
   sc_convention_t conv;
   atr_init(&atr);
   atr.TS = 0x3F;
@@ -207,7 +207,7 @@ void test_atr_get_convention_reverse(void) {
 }
 
 void test_atr_get_convention_invalid(void) {
-  atr_t          atr;
+  atr_t           atr;
   sc_convention_t conv;
   atr_init(&atr);
   atr.TS = 0x00;
@@ -314,7 +314,8 @@ void test_sc_defs_get_i_reserved(void) {
 }
 
 void test_sc_defs_get_min_etu_ns_valid(void) {
-  /* Fi=9=512, Di=7=64, fmax=5000000 → etu = 10000*512 / (64*(5000000/100000)) */
+  /* Fi=9=512, Di=7=64, fmax=5000000 → etu = 10000*512 / (64*(5000000/100000))
+   */
   uint32_t etu = get_min_etu_ns(9, 7);
   TEST_ASSERT_GREATER_THAN(0, etu);
 }

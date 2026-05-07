@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Configure
         run: cmake -B build -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
@@ -20,25 +20,23 @@ jobs:
         run: cmake --build build --config Debug
 
       - name: Test
-        run: ctest --test-dir build -C Debug --output-on-failure
+        run: ctest --test-dir build -C Debug --output-on-failure --verbose
 
   sanitizers:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Configure
         run: >
-          cmake -B build-san -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_C_FLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer"
-          -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+          cmake -B build-san -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug -DENABLE_ASAN=ON
 
       - name: Build
         run: cmake --build build-san
 
       - name: Test
-        run: ctest --test-dir build-san --output-on-failure
+        run: ctest --test-dir build-san --output-on-failure --verbose
         env:
           ASAN_OPTIONS: detect_leaks=1
           UBSAN_OPTIONS: print_stacktrace=1
@@ -47,31 +45,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install lcov
         run: sudo apt-get install -y lcov
 
       - name: Configure
         run: >
-          cmake -B build-cov -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug
-          -DCMAKE_C_FLAGS="--coverage"
-          -DCMAKE_EXE_LINKER_FLAGS="--coverage"
+          cmake -B build-cov -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON
 
       - name: Build
         run: cmake --build build-cov
 
       - name: Test
-        run: ctest --test-dir build-cov --output-on-failure
+        run: ctest --test-dir build-cov --output-on-failure --verbose
 
       - name: Generate report
         run: |
           lcov --capture --directory build-cov --output-file coverage.info
-          lcov --remove coverage.info '*/test/*' '*/_deps/*' --output-file coverage.info
+          lcov --remove coverage.info --output-file coverage.info
           genhtml coverage.info --output-directory coverage-html
 
       - name: Upload report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage-html/
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_ORG_TOKEN }}
