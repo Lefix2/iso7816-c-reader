@@ -33,11 +33,22 @@ ctest --test-dir build --output-on-failure
 
 Tests use [Unity](https://github.com/ThrowTheSwitch/Unity) fetched automatically via CMake FetchContent.
 
+### Install
+
+```sh
+cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local
+cmake --build build
+cmake --install build
+```
+
+Headers land in `<prefix>/include/iso7816/`, libraries in `<prefix>/lib/`.
+
 ### Options
 
 | Variable | Default | Description |
 |---|---|---|
 | `BUILD_TESTING` | `ON` | Build and register the test suite |
+| `SC_MAX_SLOTS` | `2` | Maximum number of registered slots |
 
 ## Integration
 
@@ -52,6 +63,27 @@ target_link_libraries(my_app PRIVATE iso7816::static)
 ### Manual
 
 Add `include/` and `src/` to your compiler include path and compile the sources listed in `CMakeLists.txt` alongside your project.
+
+## Debug
+
+Register a hook at runtime to trace all protocol traffic:
+
+```c
+void my_hook(const char *tag, const uint8_t *data, uint32_t len) {
+    if (data)
+        printf("[%s] %u bytes: ", tag, len);  /* comm trace */
+    else
+        printf("[%s]\n", tag);               /* event */
+}
+
+smartcard_Set_Debug_Hook(my_hook);
+```
+
+Tags: `"ATR <<"`, `"PPS >>"`, `"PPS <<"`, `"T0 TPDU >>"`, `"T0 TPDU <<"`,
+`"T1 TPDU >>"`, `"T1 TPDU <<"`, `"T0 APDU >>"`, `"T0 APDU <<"`,
+`"T1 APDU >>"`, `"T1 APDU <<"`, `"power_on"`, `"power_on_params"`.
+
+Pass `NULL` to disable. Zero overhead when no hook is registered.
 
 ## Porting
 
@@ -113,10 +145,11 @@ smartcard_Power_Off(slot);
 ## Repository layout
 
 ```
-include/        Public headers (smartcard.h, slot_itf.h, sc_defs.h, sc_status.h, sc_debug.h)
+include/        Public headers (smartcard.h, slot_itf.h, sc_defs.h, sc_status.h)
 src/
-  smartcard.c   Public API implementation
+  smartcard.c   Public API + debug hook implementation
   sc_defs.c     ISO 7816 parameter tables (Fi/Di/fmax)
+  sc_debug.h    Internal SC_DBG_COMM macro (not installed)
   maths/        EDC — LRC and CRC-16
   protocols/    ATR, PPS, TPDU T=0, APDU T=0, TPDU T=1, APDU T=1
 test/           Unity-based test suite + slot_sim (simulation slot)
