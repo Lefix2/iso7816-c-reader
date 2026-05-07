@@ -83,6 +83,11 @@ static sc_Status APDU_T0_Decode(APDU_T0_state *state,
 
   /* 2E or 3E or 4E */
   if (C5 == 0) {
+
+    if (n < 7) {
+      return sc_Status_APDU_T0_Malformed;
+    }
+
     C6C7 = (buffer[C6_IDX] << 8) | (buffer[C7_IDX]);
 
     /* 2E */
@@ -125,11 +130,11 @@ static sc_Status APDU_T0_Decode(APDU_T0_state *state,
   return sc_Status_APDU_T0_Malformed;
 }
 
-static sc_Status protocol_APDU_T0_transact(sc_context_t *context,
+static sc_Status protocol_APDU_T0_transact(sc_context_t  *context,
                                            const uint8_t *send_buffer,
-                                           uint32_t      send_length,
-                                           uint8_t      *receive_buffer,
-                                           uint32_t     *receive_length) {
+                                           uint32_t       send_length,
+                                           uint8_t       *receive_buffer,
+                                           uint32_t      *receive_length) {
   sc_Status     ret;   /* Return value */
   APDU_T0_state state; /* State of the T0 APDU transaction */
 
