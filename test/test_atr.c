@@ -291,20 +291,17 @@ void test_atr_get_wi_tc2_zero_is_malformed(void) {
 
 void test_sc_defs_get_fi_reserved(void) {
   uint32_t F;
-  /* Index 7: f_table[7]=0 → reserved → Invalid_Parameter */
-  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_Fi(7, &F));
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_iParams(7, 0, &F, NULL, NULL));
 }
 
 void test_sc_defs_get_di_reserved(void) {
   uint32_t D;
-  /* Index 10: d_table[10]=0 → reserved */
-  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_Di(10, &D));
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_iParams(0, 10, NULL, &D, NULL));
 }
 
 void test_sc_defs_get_fmax_reserved(void) {
   uint32_t fmax;
-  /* Index 7: fmax_table[7]=0 → reserved */
-  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_fmax(7, &fmax));
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_iParams(7, 0, NULL, NULL, &fmax));
 }
 
 void test_sc_defs_get_i_reserved(void) {
@@ -322,17 +319,17 @@ void test_sc_defs_get_min_etu_ns_valid(void) {
 
 void test_sc_defs_get_fi_out_of_bounds(void) {
   uint32_t F;
-  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_Fi(17, &F));
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_iParams(17, 0, &F, NULL, NULL));
 }
 
 void test_sc_defs_get_di_out_of_bounds(void) {
   uint32_t D;
-  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_Di(17, &D));
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_iParams(0, 17, NULL, &D, NULL));
 }
 
 void test_sc_defs_get_fmax_out_of_bounds(void) {
   uint32_t fmax;
-  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_fmax(17, &fmax));
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, get_iParams(17, 0, NULL, NULL, &fmax));
 }
 
 void test_sc_defs_get_i_out_of_bounds(void) {

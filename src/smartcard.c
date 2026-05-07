@@ -272,11 +272,8 @@ static sc_Status finalize_pps(sc_context_t *context,
     uint8_t iFn = pps_resp[PPS0_IDX + pps1_resp_pres] >> 4;
     uint8_t iDn = pps_resp[PPS0_IDX + pps1_resp_pres] & 0x0F;
 
-    if (get_Fi(iFn, &params->F) != sc_Status_Success)
-      return sc_Status_PPS_Unsuccessfull;
-    if (get_Di(iDn, &params->D) != sc_Status_Success)
-      return sc_Status_PPS_Unsuccessfull;
-    if (get_fmax(iFn, &params->fmax) != sc_Status_Success)
+    if (get_iParams(iFn, iDn, &params->F, &params->D, &params->fmax) !=
+        sc_Status_Success)
       return sc_Status_PPS_Unsuccessfull;
   } else {
     params->F    = SC_Fd;

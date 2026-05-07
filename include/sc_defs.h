@@ -200,11 +200,7 @@ void atr_init(atr_t *atr);
 
 void iso_params_init(iso_params_t *params);
 
-sc_Status get_Fi(uint8_t i, uint32_t *Fi);
-
-sc_Status get_Di(uint8_t i, uint32_t *Di);
-
-sc_Status get_fmax(uint8_t i, uint32_t *fmax);
+sc_Status get_iParams(uint8_t iFi, uint8_t iDi, uint32_t *Fi, uint32_t *Di, uint32_t *fmax);
 
 sc_Status get_I(uint8_t i, uint32_t *I);
 

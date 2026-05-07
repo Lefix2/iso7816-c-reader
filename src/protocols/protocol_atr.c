@@ -222,7 +222,7 @@ sc_Status atr_get_fmax(const atr_t *atr, uint32_t *fmax) {
 
   if (atr->T[0][ATR_INTERFACE_A].present) {
     i = (atr->T[0][ATR_INTERFACE_A].value) >> 4;
-    return get_fmax(i, fmax);
+    return get_iParams(i, 0, NULL, NULL, fmax);
   } else {
     (*fmax) = ATR_DEFAULT_FMAX;
   }
@@ -235,7 +235,7 @@ sc_Status atr_get_Fi(const atr_t *atr, uint32_t *F) {
 
   if (atr->T[0][ATR_INTERFACE_A].present) {
     i = (atr->T[0][ATR_INTERFACE_A].value) >> 4;
-    return get_Fi(i, F);
+    return get_iParams(i, 0, F, NULL, NULL);
   } else {
     (*F) = ATR_DEFAULT_F;
   }
@@ -248,7 +248,7 @@ sc_Status atr_get_Di(const atr_t *atr, uint32_t *D) {
 
   if (atr->T[0][ATR_INTERFACE_A].present) {
     i = atr->T[0][ATR_INTERFACE_A].value & 0x0F;
-    return get_Di(i, D);
+    return get_iParams(0, i, NULL, D, NULL);
   } else {
     (*D) = ATR_DEFAULT_D;
   }

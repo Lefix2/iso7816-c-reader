@@ -91,36 +91,27 @@ void iso_params_init(iso_params_t *params) {
   params->EDC  = ATR_DEFAULT_EDC;
 }
 
-sc_Status get_Fi(uint8_t i, uint32_t *Fi) {
-  if (i > sizeof(f_table) / sizeof(*f_table))
-    return sc_Status_Invalid_Parameter;
-
-  *Fi = f_table[i];
-  if (*Fi == 0)
-    return sc_Status_Invalid_Parameter;
-
-  return sc_Status_Success;
-}
-
-sc_Status get_Di(uint8_t i, uint32_t *Di) {
-  if (i > sizeof(f_table) / sizeof(*f_table))
-    return sc_Status_Invalid_Parameter;
-
-  *Di = d_table[i];
-  if (*Di == 0)
-    return sc_Status_Invalid_Parameter;
-
-  return sc_Status_Success;
-}
-
-sc_Status get_fmax(uint8_t i, uint32_t *fmax) {
-  if (i > sizeof(f_table) / sizeof(*f_table))
-    return sc_Status_Invalid_Parameter;
-
-  *fmax = fmax_table[i];
-  if (*fmax == 0)
-    return sc_Status_Invalid_Parameter;
-
+sc_Status get_iParams(uint8_t iFi, uint8_t iDi, uint32_t *Fi, uint32_t *Di,
+                      uint32_t *fmax) {
+  if (Fi != NULL || fmax != NULL) {
+    if (iFi >= sizeof(f_table) / sizeof(*f_table))
+      return sc_Status_Invalid_Parameter;
+    uint32_t f = f_table[iFi];
+    if (f == 0)
+      return sc_Status_Invalid_Parameter;
+    if (Fi != NULL)
+      *Fi = f;
+    if (fmax != NULL)
+      *fmax = fmax_table[iFi]; /* f_table and fmax_table share valid indices */
+  }
+  if (Di != NULL) {
+    if (iDi >= sizeof(d_table) / sizeof(*d_table))
+      return sc_Status_Invalid_Parameter;
+    uint32_t d = d_table[iDi];
+    if (d == 0)
+      return sc_Status_Invalid_Parameter;
+    *Di = d;
+  }
   return sc_Status_Success;
 }
 
@@ -138,11 +129,7 @@ sc_Status get_I(uint8_t i, uint32_t *I) {
 uint32_t get_min_etu_ns(uint8_t iFi, uint8_t iDi) {
   uint32_t Fi, Di, fmax;
 
-  if (get_Fi(iFi, &Fi) != sc_Status_Success)
-    return 0;
-  if (get_Di(iDi, &Di) != sc_Status_Success)
-    return 0;
-  if (get_fmax(iFi, &fmax) != sc_Status_Success)
+  if (get_iParams(iFi, iDi, &Fi, &Di, &fmax) != sc_Status_Success)
     return 0;
 
   return (10000 * Fi) / (Di * (fmax / 100000));
