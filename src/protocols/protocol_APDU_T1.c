@@ -1,14 +1,16 @@
-#include "sc_debug.h"
 /*
  * Protocol APDU T1
  * Expose API for Application Protocol Data Unit in protocol T1
  */
 
-#include "maths/EDC.h"
-#include "protocols.h"
+#include <string.h>
+
 #include "sc_defs.h"
 #include "slot_itf.h"
-#include <string.h>
+
+#include "EDC.h"
+#include "protocols.h"
+#include "sc_debug.h"
 
 /************************************************************************************
  * Private defines
@@ -62,18 +64,20 @@ static sc_Status build_I_block(iso_params_t  *params,
                                uint32_t      *block_len,
                                const uint8_t *data_buffer,
                                uint32_t       data_len) {
-  uint32_t len;
+  uint8_t  len;
   uint16_t CRC;
   uint8_t  PCB;
 
-  PCB = PCB_I_BLOCK | (params->Nd << 6);
+  PCB = PCB_I_BLOCK | (uint8_t)(params->Nd << 6);
 
-  len = MIN(data_len, params->IFSC);
-  if (len < data_len) {
+  if (data_len > params->IFSC) {
+    len = params->IFSC;
     PCB |= PCB_I_MORE;
+  } else {
+    len = (uint8_t)data_len;
   }
 
-  block[NAD_IDX] = (params->DAD << 4) | params->SAD;
+  block[NAD_IDX] = (uint8_t)(params->DAD << 4) | params->SAD;
   block[PCB_IDX] = PCB;
   block[LEN_IDX] = len;
   *block_len     = T1_PROLOGUE_SIZE;
@@ -86,8 +90,8 @@ static sc_Status build_I_block(iso_params_t  *params,
     (*block_len)++;
   } else {
     CRC                   = EDC_CRC(block, *block_len);
-    block[(*block_len)++] = CRC >> 8;
-    block[(*block_len)++] = CRC & 0xFF;
+    block[(*block_len)++] = (uint8_t)(CRC >> 8);
+    block[(*block_len)++] = (uint8_t)(CRC & 0xFF);
   }
   return sc_Status_Success;
 }
@@ -102,7 +106,7 @@ static sc_Status build_S_block(iso_params_t *params,
 
   len = 3;
 
-  block[NAD_IDX] = (params->DAD << 4) | params->SAD;
+  block[NAD_IDX] = (uint8_t)(params->DAD << 4) | params->SAD;
   block[PCB_IDX] = PCB_S_BLOCK | PCB_options;
   if (optional_byte) {
     block[LEN_IDX] = 1;
@@ -117,8 +121,8 @@ static sc_Status build_S_block(iso_params_t *params,
     len++;
   } else {
     CRC          = EDC_CRC(block, len);
-    block[len++] = CRC >> 8;
-    block[len++] = CRC & 0xFF;
+    block[len++] = (uint8_t)(CRC >> 8);
+    block[len++] = (uint8_t)(CRC & 0xFF);
   }
 
   *block_len = len;
@@ -135,8 +139,8 @@ static sc_Status build_R_block(iso_params_t *params,
 
   len = 3;
 
-  block[NAD_IDX] = (params->DAD << 4) | params->SAD;
-  block[PCB_IDX] = PCB_R_BLOCK | (params->Nc << 4) | PCB_options;
+  block[NAD_IDX] = (uint8_t)(params->DAD << 4) | params->SAD;
+  block[PCB_IDX] = PCB_R_BLOCK | (uint8_t)(params->Nc << 4) | PCB_options;
   block[LEN_IDX] = 0;
 
   if (params->EDC == SC_EDC_LRC) {
@@ -144,8 +148,8 @@ static sc_Status build_R_block(iso_params_t *params,
     len++;
   } else {
     CRC          = EDC_CRC(block, len);
-    block[len++] = CRC >> 8;
-    block[len++] = CRC & 0xFF;
+    block[len++] = (uint8_t)(CRC >> 8);
+    block[len++] = (uint8_t)(CRC & 0xFF);
   }
 
   *block_len = len;
@@ -181,11 +185,11 @@ static bool check_resync_pcb(uint8_t PCB) {
   return true;
 }
 
-static sc_Status protocol_APDU_T1_transact(sc_context_t *context,
+static sc_Status protocol_APDU_T1_transact(sc_context_t  *context,
                                            const uint8_t *send_buffer,
-                                           uint32_t      send_length,
-                                           uint8_t      *receive_buffer,
-                                           uint32_t     *receive_length) {
+                                           uint32_t       send_length,
+                                           uint8_t       *receive_buffer,
+                                           uint32_t      *receive_length) {
   sc_Status     ret;   /* Return value */
   slot_itf_t   *slot;  /* Reference on the slot interface */
   APDU_T1_state state; /* State of the T1 APDU transaction */

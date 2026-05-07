@@ -1,13 +1,14 @@
-#include "sc_debug.h"
 /*
  * Protocol TPDU T1
  * Expose API for Transport Protocol Data Unit in protocol T1
  */
 
-#include "maths/EDC.h"
-#include "protocols.h"
 #include "sc_defs.h"
 #include "slot_itf.h"
+
+#include "EDC.h"
+#include "protocols.h"
+#include "sc_debug.h"
 
 /************************************************************************************
  * Private defines
@@ -94,11 +95,11 @@ check_Block(uint8_t NAD, uint8_t PCB, uint8_t LEN, uint8_t IFS) {
   return sc_Status_Success;
 }
 
-static sc_Status protocol_TPDU_T1_transact(sc_context_t *context,
+static sc_Status protocol_TPDU_T1_transact(sc_context_t  *context,
                                            const uint8_t *send_buffer,
-                                           uint32_t      send_length,
-                                           uint8_t      *receive_buffer,
-                                           uint32_t     *receive_length) {
+                                           uint32_t       send_length,
+                                           uint8_t       *receive_buffer,
+                                           uint32_t      *receive_length) {
   sc_Status     ret;   /* Return value */
   slot_itf_t   *slot;  /* Reference on the slot interface */
   TPDU_T1_state state; /* State of the T0 APDU transaction */
@@ -128,12 +129,12 @@ static sc_Status protocol_TPDU_T1_transact(sc_context_t *context,
   }
 
   /* Compute low level time checking 11.4.3 */
-  CWT = 11 + (0x01 << context->params.CWI);
+  CWT = 11U + (1U << context->params.CWI);
   if (context->params.N == 0xFF) {
     CGT = 11;
   } else {
     // presence of T=15 protocol
-    if (context->params.supported_prot & (0x0001 << SC_PROTOCOL_T15)) {
+    if (context->params.supported_prot & (0x0001U << SC_PROTOCOL_T15)) {
       CGT = 12 + (context->params.Fi * context->params.N * context->params.D) /
                      (context->params.F * context->params.Di);
     } else {
@@ -141,7 +142,7 @@ static sc_Status protocol_TPDU_T1_transact(sc_context_t *context,
     }
   }
 
-  BWT = 11 + (((0x01 << context->params.BWI) * 960 * ATR_DEFAULT_F) /
+  BWT = 11 + (((1U << context->params.BWI) * 960 * ATR_DEFAULT_F) /
               context->params.F) *
                  context->params.D;
   BGT = 22;
@@ -271,8 +272,8 @@ static sc_Status protocol_TPDU_T1_transact(sc_context_t *context,
         END_TRANSACTION(ret);
       }
 
-      CRC = (receive_buffer[*receive_length] << 8) |
-            receive_buffer[*receive_length + 1];
+      CRC = (uint16_t)((receive_buffer[*receive_length] << 8) |
+                       receive_buffer[*receive_length + 1]);
 
       if (EDC_CRC(receive_buffer, *receive_length) != CRC) {
         END_TRANSACTION(sc_Status_TPDU_T1_Bad_EDC);

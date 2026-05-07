@@ -1,4 +1,3 @@
-#include "sc_debug.h"
 /*
  * Protocol ATR
  * Expose API for Answer To Reset
@@ -6,9 +5,11 @@
 
 #include <string.h>
 
-#include "protocols.h"
 #include "sc_defs.h"
 #include "slot_itf.h"
+
+#include "protocols.h"
+#include "sc_debug.h"
 
 /************************************************************************************
  * Private defines
@@ -26,17 +27,17 @@ static const uint8_t nb_Tx_table[16] = {0, 1, 1, 2, 1, 2, 2, 3,
  * Private functions
  ************************************************************************************/
 
-static sc_Status protocol_atr_transact(sc_context_t *context,
+static sc_Status protocol_atr_transact(sc_context_t  *context,
                                        const uint8_t *send_buffer,
-                                       uint32_t      send_length,
-                                       uint8_t      *receive_buffer,
-                                       uint32_t     *receive_length) {
+                                       uint32_t       send_length,
+                                       uint8_t       *receive_buffer,
+                                       uint32_t      *receive_length) {
   sc_Status  ret;
   slot_itf_t slot;
   atr_t      atr;
 
   uint8_t  TDi;
-  uint32_t len, nb_T;
+  uint8_t  len, nb_T;
   uint32_t buffer_size = *receive_length;
 
   (void)send_buffer;
@@ -338,7 +339,8 @@ sc_Status atr_T1_specific_get_IFS(const atr_t *atr, uint8_t *IFS) {
   return sc_Status_Success;
 }
 
-sc_Status atr_T1_specific_get_CBWI(const atr_t *atr, uint8_t *CWI, uint8_t *BWI) {
+sc_Status
+atr_T1_specific_get_CBWI(const atr_t *atr, uint8_t *CWI, uint8_t *BWI) {
   for (int i = 2; i < ATR_MAX_PROTOCOL; i++) {
     /* For TD defining T1 */
     if ((atr->T[i][ATR_INTERFACE_B].present) &&

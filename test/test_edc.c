@@ -1,6 +1,6 @@
 #include "unity.h"
 
-#include "maths/EDC.h"
+#include "EDC.h"
 
 void setUp(void) {}
 void tearDown(void) {}
@@ -44,7 +44,8 @@ void test_edc_crc_empty(void) {
 
 void test_edc_crc_single_zero(void) {
   /* Precomputed: CRC-16 of [0x00] with init=0xFFFF, poly=0x8408 (reflected)
-   * Step: crc = (0xFFFF>>8) ^ table[0xFFFF & 0xFF] = 0x00FF ^ 0x0F78 = 0x0F87 */
+   * Step: crc = (0xFFFF>>8) ^ table[0xFFFF & 0xFF] = 0x00FF ^ 0x0F78 = 0x0F87
+   */
   uint8_t buf[] = {0x00};
   TEST_ASSERT_EQUAL_HEX16(0x0F87, EDC_CRC(buf, 1));
 }
@@ -52,7 +53,8 @@ void test_edc_crc_single_zero(void) {
 void test_edc_crc_two_zeros(void) {
   /* Precomputed: CRC-16 of [0x00, 0x00]
    * After 1st byte: 0x0F87
-   * 2nd byte: crc = (0x0F87>>8) ^ table[0x0F87 & 0xFF] = 0x000F ^ 0xF0B7 = 0xF0B8 */
+   * 2nd byte: crc = (0x0F87>>8) ^ table[0x0F87 & 0xFF] = 0x000F ^ 0xF0B7 =
+   * 0xF0B8 */
   uint8_t buf[] = {0x00, 0x00};
   TEST_ASSERT_EQUAL_HEX16(0xF0B8, EDC_CRC(buf, 2));
 }

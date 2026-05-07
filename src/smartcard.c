@@ -3,14 +3,16 @@
  * API to manage an ISO7816 communication
  */
 
-#include "smartcard.h"
-#include "maths/EDC.h"
-#include "protocols/protocols.h"
-#include "sc_debug.h"
-#include "sc_defs.h"
-#include "slot_itf.h"
 #include <stdio.h>
 #include <string.h>
+
+#include "sc_defs.h"
+#include "slot_itf.h"
+#include "smartcard.h"
+
+#include "EDC.h"
+#include "protocols.h"
+#include "sc_debug.h"
 
 /************************************************************************************
  * Private defines
@@ -218,7 +220,7 @@ prepare_pps(sc_context_t *context, uint8_t *pps, uint32_t *pps_len) {
 
       // pps1
       pps[PPS0_IDX] |= PPS0_PPS1_PRES;
-      pps[(*pps_len)++] = (iFn << 4 | iDn);
+      pps[(*pps_len)++] = (uint8_t)(iFn << 4 | iDn);
     }
   }
 
@@ -313,9 +315,7 @@ static sc_Status finalize_pps(sc_context_t *context,
  * Public functions
  ************************************************************************************/
 
-void smartcard_Set_Debug_Hook(sc_debug_hook_t hook) {
-  g_sc_debug_hook = hook;
-}
+void smartcard_Set_Debug_Hook(sc_debug_hook_t hook) { g_sc_debug_hook = hook; }
 
 sc_Status smartcard_Init(void) {
   uint8_t slotIdx;
@@ -515,11 +515,11 @@ sc_Status smartcard_Power_Off(uint32_t slot) {
   return reg_p[slot].context.slot->deactivate();
 }
 
-sc_Status smartcard_Xfer_Data(uint32_t  slot,
+sc_Status smartcard_Xfer_Data(uint32_t       slot,
                               const uint8_t *send_buffer,
-                              uint32_t  send_length,
-                              uint8_t  *receive_buffer,
-                              uint32_t *receive_length) {
+                              uint32_t       send_length,
+                              uint8_t       *receive_buffer,
+                              uint32_t      *receive_length) {
   sc_Status     ret;
   sc_context_t *slotContext;
 

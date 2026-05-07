@@ -5,7 +5,6 @@
 #ifndef SLOT_SIM_H_
 #define SLOT_SIM_H_
 
-#include "sc_defs.h"
 #include "slot_itf.h"
 #include <stdbool.h>
 #include <stdint.h>
@@ -29,7 +28,7 @@ typedef struct {
   uint32_t        F;
   uint32_t        D;
   uint32_t        timeout_etu;
-  uint8_t         guardtime_etu;
+  uint32_t        guardtime_etu;
   sc_convention_t convention;
   uint8_t         IFSD;
 } slot_sim_ctx_t;

@@ -1,12 +1,13 @@
-#include "sc_debug.h"
 /*
  * Protocol TPDU T0
  * Expose API for Transport Protocol Data Unit in protocol T0
  */
 
-#include "protocols.h"
 #include "sc_defs.h"
 #include "slot_itf.h"
+
+#include "protocols.h"
+#include "sc_debug.h"
 
 /************************************************************************************
  * Private defines
@@ -46,11 +47,11 @@ typedef enum {
  * Private functions
  ************************************************************************************/
 
-static sc_Status protocol_TPDU_T0_transact(sc_context_t *context,
+static sc_Status protocol_TPDU_T0_transact(sc_context_t  *context,
                                            const uint8_t *send_buffer,
-                                           uint32_t      send_length,
-                                           uint8_t      *receive_buffer,
-                                           uint32_t     *receive_length) {
+                                           uint32_t       send_length,
+                                           uint8_t       *receive_buffer,
+                                           uint32_t      *receive_length) {
   sc_Status   ret;
   slot_itf_t *slot;
 
@@ -88,7 +89,7 @@ static sc_Status protocol_TPDU_T0_transact(sc_context_t *context,
   /* WT = (WI x 960 x Fi x D)/F etu */
 
   WT = (uint32_t)((float)(context->params.WI * 960 * context->params.D) *
-                  ((float)context->params.Fi / context->params.F));
+                  ((float)context->params.Fi / (float)context->params.F));
   if (context->params.N == 0xFF) {
     GT = 12;
   } else {
@@ -287,12 +288,12 @@ static sc_Status protocol_TPDU_T0_transact(sc_context_t *context,
 
       /* Wrong length, Na specified */
       if (SW1 == 0x6C) {
-        Na                  = (SW2 == 0 ? 256 : SW2);
-        len_to_receive      = Na + 2;
+        Na                               = (SW2 == 0 ? 256 : SW2);
+        len_to_receive                   = Na + 2;
         ((uint8_t *)send_buffer)[P3_IDX] = SW2;
-        send_length         = 0;
-        is_rcv              = true;
-        state               = TPDU_T0_send_header;
+        send_length                      = 0;
+        is_rcv                           = true;
+        state                            = TPDU_T0_send_header;
         break;
       }
 

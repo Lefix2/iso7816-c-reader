@@ -1,6 +1,6 @@
 #include "unity.h"
 
-#include "protocols/protocols.h"
+#include "protocols.h"
 #include "sc_context.h"
 #include "sc_defs.h"
 #include "slot_sim.h"
