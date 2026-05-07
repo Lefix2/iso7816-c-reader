@@ -260,6 +260,162 @@ void test_sm_xfer_t1_case1(void) {
   TEST_ASSERT_EQUAL_HEX8(0x00, resp[1]);
 }
 
+void test_sm_power_on_ta2_specific_t0(void) {
+  /* ATR: 3B 80 10 00
+   * T0=0x80: TD1 present; TD1=0x10: TA2 present, T=0; TA2=0x00: specific T=0
+   * No PPS exchange in specific mode; F=Fi, D=Di applied directly */
+  static const uint8_t rx[] = {0x3B, 0x80, 0x10, 0x00};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(SC_PROTOCOL_T0, protocol);
+}
+
+void test_sm_power_on_ta2_b5_set(void) {
+  /* ATR: 3B 80 10 10 — TA2=0x10: b5 set (implicit F/D), unsupported */
+  static const uint8_t rx[] = {0x3B, 0x80, 0x10, 0x10};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_Unsuported_feature, r);
+}
+
+void test_sm_power_on_preferred_t0(void) {
+  /* Same ATR+PPS as k_rx_t0 but preferred_protocol=T0; exercises the
+   * preferred-protocol override branch (line 447 in smartcard.c) */
+  slot_sim_setup(k_rx_t0, sizeof(k_rx_t0), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_T0, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(SC_PROTOCOL_T0, protocol);
+}
+
+void test_sm_power_on_atr_fail(void) {
+  /* Empty sim: activate succeeds but ATR receive times out.
+   * Library retries class_B, class_C; all fail → deactivate each time,
+   * then returns the timeout error. */
+  slot_sim_setup(NULL, 0, NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_NOT_EQUAL(sc_Status_Success, r);
+}
+
+void test_sm_pps_transact_timeout(void) {
+  /* Only ATR bytes in sim; PPS receive times out → Power_On returns
+   * PPS_Unsuccessfull (exercises the protocol_pps.Transact failure path) */
+  static const uint8_t rx[] = {0x3B, 0x00};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
+}
+
+void test_sm_finalize_pps_protocol_mismatch(void) {
+  /* ATR=3B 00 (T=0). We send PPS0=0x60 (T=0+PPS2+PPS3, len=5).
+   * Card echoes PPS0=0x61 (T=1+PPS2, len=4) — different length so
+   * protocol_pps passes; finalize_pps detects T nibble mismatch (rule 1). */
+  static const uint8_t rx[] = {0x3B, 0x00, 0xFF, 0x21, 0x00, 0xDE};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
+}
+
+void test_sm_finalize_pps_pps1_unexpected(void) {
+  /* ATR=3B 00: no TA1 → we don't send PPS1 (PPS0=0x60).
+   * Card adds PPS1 in response (PPS0=0x70, len=6 vs our 5).
+   * finalize_pps rule 2: PPS1 present in response but not in request. */
+  static const uint8_t rx[] = {0x3B, 0x00, 0xFF, 0x70, 0x97, 0x00, 0x00, 0x18};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
+}
+
+void test_sm_finalize_pps_pps1_mismatch(void) {
+  /* ATR=3B 10 97: TA1=0x97 → we send PPS1=0x97 (PPS0=0x70, len=6).
+   * Card responds with PPS1=0x11 and drops PPS3 (PPS0=0x30, len=5).
+   * finalize_pps rule 2: PPS1 value differs (0x97 vs 0x11). */
+  static const uint8_t rx[] = {0x3B, 0x10, 0x97, 0xFF, 0x30, 0x11, 0x00, 0xDE};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
+}
+
+void test_sm_finalize_pps_pps2_mismatch(void) {
+  /* ATR=3B 00: we send PPS2=0x00 (PPS0=0x60, len=5).
+   * Card responds with PPS2=0x01 and drops PPS3 (PPS0=0x20, len=4).
+   * finalize_pps rule 3: PPS2 value differs (0x00 vs 0x01). */
+  static const uint8_t rx[] = {0x3B, 0x00, 0xFF, 0x20, 0x01, 0xDE};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
+}
+
+void test_sm_finalize_pps_pps3_mismatch(void) {
+  /* ATR=3B 00: we send PPS3=0x00 (PPS0=0x60, len=5).
+   * Card drops PPS2 and sends PPS3=0x01 (PPS0=0x40, len=4).
+   * finalize_pps rule 4: PPS3 value differs (0x00 vs 0x01). */
+  static const uint8_t rx[] = {0x3B, 0x00, 0xFF, 0x40, 0x01, 0xBE};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
+}
+
 void test_sm_debug_hook(void) {
   smartcard_Set_Debug_Hook(test_hook);
   slot_sim_setup(k_rx_t0, sizeof(k_rx_t0), NULL, 0);
@@ -297,5 +453,15 @@ int main(void) {
   RUN_TEST(test_sm_power_on_with_pps1);
   RUN_TEST(test_sm_xfer_t1_case1);
   RUN_TEST(test_sm_debug_hook);
+  RUN_TEST(test_sm_power_on_ta2_specific_t0);
+  RUN_TEST(test_sm_power_on_ta2_b5_set);
+  RUN_TEST(test_sm_power_on_preferred_t0);
+  RUN_TEST(test_sm_power_on_atr_fail);
+  RUN_TEST(test_sm_pps_transact_timeout);
+  RUN_TEST(test_sm_finalize_pps_protocol_mismatch);
+  RUN_TEST(test_sm_finalize_pps_pps1_unexpected);
+  RUN_TEST(test_sm_finalize_pps_pps1_mismatch);
+  RUN_TEST(test_sm_finalize_pps_pps2_mismatch);
+  RUN_TEST(test_sm_finalize_pps_pps3_mismatch);
   return UNITY_END();
 }
