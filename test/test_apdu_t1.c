@@ -680,6 +680,381 @@ void test_apdu_t1_crc_with_edc_error(void) {
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
 }
 
+/* ── Helpers for ISO 7816-3 Annex A scenario tests ──────────────────────── */
+
+static void
+build_r_block_sim(uint8_t *block, uint32_t *len, uint8_t nr, uint8_t pcb_err) {
+  block[0] = 0x00;
+  block[1] = (uint8_t)(PCB_R_BLOCK | (nr << 4) | pcb_err);
+  block[2] = 0x00;
+  block[3] = lrc_of(block, 3);
+  *len     = 4;
+}
+
+static void build_s_block_sim(uint8_t       *block,
+                               uint32_t      *len,
+                               uint8_t        pcb_opts,
+                               const uint8_t *data,
+                               uint8_t        data_len) {
+  block[0] = 0x00;
+  block[1] = (uint8_t)(PCB_S_BLOCK | pcb_opts);
+  block[2] = data_len;
+  if (data_len && data)
+    memcpy(block + 3, data, data_len);
+  block[3 + data_len] = lrc_of(block, 3 + data_len);
+  *len                = (uint32_t)(4 + data_len);
+}
+
+static void build_bad_i_block_response(uint8_t *block, uint32_t *len) {
+  /* I(0,0) with wrong LRC — triggers TPDU_T1_Bad_EDC */
+  block[0] = 0x00;
+  block[1] = 0x00; /* I-block N(S)=0, no more */
+  block[2] = 0x03;
+  block[3] = 0xFF;
+  block[4] = 0x90;
+  block[5] = 0x00;
+  block[6] = 0x00; /* wrong LRC (correct = 0x6C) */
+  *len     = 7;
+}
+
+/* ── Sc 1: N(S) toggles across two consecutive Transact calls ────────────── */
+void test_sc1_ns_toggle(void) {
+  /* ISO 7816-3 Annex A Scenario 1: two I-block exchanges. Second uses N(S)=1
+   * because Nd persists in context->params across calls. */
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x02};
+
+  uint8_t  sim_rx[128];
+  uint32_t rx_pos = 0, blen;
+  uint8_t  sw[] = {0x90, 0x00};
+
+  /* Call 1: IFS → I(0,0) response */
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, sw, sizeof(sw));
+  rx_pos += blen;
+
+  /* Call 2: IFS → I(1,0) response (N(S)=1, Nc persisted from call 1) */
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+  build_i_block_response(sim_rx + rx_pos, &blen, 1, sw, sizeof(sw));
+  rx_pos += blen;
+
+  uint8_t tx_cap[512];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len;
+
+  recv_len  = sizeof(recv);
+  sc_Status r1 =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r1);
+  TEST_ASSERT_EQUAL(2, recv_len);
+
+  recv_len  = sizeof(recv);
+  sc_Status r2 =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r2);
+  TEST_ASSERT_EQUAL(2, recv_len);
+}
+
+/* ── Sc 5: reader chaining — full two-block chain with R-block ACK ────────── */
+void test_sc5_reader_chaining_full(void) {
+  /* IFSC=2 forces split of 4-byte APDU: I(0,1)[2B] → R(1) → I(1,0)[2B] →
+   * I(0,0). Requires the HASMORE(Last_I.PCB) fix in process_R_block. */
+  uint8_t apdu[] = {0x00, 0xC0, 0x00, 0x00}; /* 4-byte Case 1 APDU */
+
+  uint8_t  sim_rx[64];
+  uint32_t rx_pos = 0, blen;
+  uint8_t  sw[] = {0x90, 0x00};
+
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+  /* Card ACKs first I-block and requests next: R(N(R)=1) */
+  build_r_block_sim(sim_rx + rx_pos, &blen, 1, PCB_R_ACK);
+  rx_pos += blen;
+  /* Card sends final response after last I-block */
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, sw, sizeof(sw));
+  rx_pos += blen;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+  ctx.params.IFSC = 2; /* force two-block chain: 4B APDU > IFSC */
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(2, recv_len);
+  TEST_ASSERT_EQUAL_HEX8(0x90, recv[0]);
+  TEST_ASSERT_EQUAL_HEX8(0x00, recv[1]);
+}
+
+/* ── Sc 10: card requests retransmit twice before sending I-block ─────────── */
+void test_sc10_double_card_retransmit(void) {
+  /* Card sends R(0) twice (failed to receive reader's I-block), then I(0,0).
+   * Retries stay within limit (≤ 2), transaction succeeds. */
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  uint8_t  sim_rx[64];
+  uint32_t rx_pos = 0, blen;
+  uint8_t  sw[] = {0x90, 0x00};
+
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+  /* Card failed to receive I-block: sends R(N(R)=0) twice */
+  build_r_block_sim(sim_rx + rx_pos, &blen, 0, PCB_R_ACK);
+  rx_pos += blen;
+  build_r_block_sim(sim_rx + rx_pos, &blen, 0, PCB_R_ACK);
+  rx_pos += blen;
+  /* Card finally received and responds */
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, sw, sizeof(sw));
+  rx_pos += blen;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(2, recv_len);
+}
+
+/* ── Sc 11: card sends wrong R direction during error recovery ───────────── */
+void test_sc11_wrong_r_direction(void) {
+  /* Reader sends I(0,0). Card response has bad EDC → reader sends R(0,EDC).
+   * Card sends R(1) (wrong direction). Reader sends R(0,OTHER). Card sends
+   * valid I(0,0). */
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  uint8_t  sim_rx[64];
+  uint32_t rx_pos = 0, blen;
+  uint8_t  sw[] = {0x90, 0x00};
+
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+  build_bad_i_block_response(sim_rx + rx_pos, &blen);
+  rx_pos += blen;
+  /* Card sends R(1) instead of retransmitting I-block */
+  build_r_block_sim(sim_rx + rx_pos, &blen, 1, PCB_R_ACK);
+  rx_pos += blen;
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, sw, sizeof(sw));
+  rx_pos += blen;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(2, recv_len);
+}
+
+/* ── Sc 14: S(WTX request) erroneously received, card retransmits ────────── */
+void test_sc14_wtx_bad_edc_retry(void) {
+  /* After reader's I-block, card sends S(WTX request) with bad EDC. Reader
+   * sends R(0,EDC). Card retransmits valid S(WTX request). Reader responds
+   * S(WTX response). Card sends I(0,0). */
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  uint8_t  sim_rx[128];
+  uint32_t rx_pos = 0, blen;
+  uint8_t  wtx_mult     = 2;
+  uint8_t  sw[]         = {0x90, 0x00};
+
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  /* S(WTX request) with wrong LRC */
+  sim_rx[rx_pos + 0] = 0x00;
+  sim_rx[rx_pos + 1] = PCB_S_BLOCK | PCB_S_WTX; /* 0xC3 */
+  sim_rx[rx_pos + 2] = 0x01;
+  sim_rx[rx_pos + 3] = wtx_mult;
+  sim_rx[rx_pos + 4] = 0x00; /* wrong LRC (correct = 0xC0) */
+  rx_pos += 5;
+
+  /* S(WTX request) retransmitted correctly */
+  build_s_block_sim(sim_rx + rx_pos, &blen,
+                    PCB_S_WTX, &wtx_mult, 1);
+  rx_pos += blen;
+
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, sw, sizeof(sw));
+  rx_pos += blen;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(2, recv_len);
+}
+
+/* ── Sc 16: S(IFS request) erroneously received, card retransmits ────────── */
+void test_sc16_card_ifs_bad_edc_retry(void) {
+  /* After reader's I-block, card sends S(IFS request, IFSC=0x50) with bad EDC.
+   * Reader sends R(0,EDC). Card retransmits valid S(IFS request). Reader
+   * responds S(IFS response). Card sends I(0,0). IFSC updated to 0x50. */
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  uint8_t  sim_rx[128];
+  uint32_t rx_pos = 0, blen;
+  uint8_t  new_ifsc = 0x50;
+  uint8_t  sw[]     = {0x90, 0x00};
+
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  /* S(IFS request, 0x50) with wrong LRC */
+  sim_rx[rx_pos + 0] = 0x00;
+  sim_rx[rx_pos + 1] = PCB_S_BLOCK | PCB_S_IFS; /* 0xC1 */
+  sim_rx[rx_pos + 2] = 0x01;
+  sim_rx[rx_pos + 3] = new_ifsc;
+  sim_rx[rx_pos + 4] = 0x00; /* wrong LRC (correct = 0x90) */
+  rx_pos += 5;
+
+  /* S(IFS request, 0x50) retransmitted correctly */
+  build_s_block_sim(sim_rx + rx_pos, &blen, PCB_S_IFS, &new_ifsc, 1);
+  rx_pos += blen;
+
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, sw, sizeof(sw));
+  rx_pos += blen;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(2, recv_len);
+  TEST_ASSERT_EQUAL(0x50, ctx.params.IFSC);
+}
+
+/* ── Sc 23: card chaining with R-block error in mid-chain ─────────────────── */
+void test_sc23_card_chain_r_error(void) {
+  /* Reader sends I(0,0). Card sends I(0,1) MORE. Reader sends R(1) to ACK.
+   * Card sends R(1) back (erroneously received reader's R(1)). Reader retries
+   * with R(1,OTHER). Card sends I(1,0) to complete chain. */
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x04};
+
+  uint8_t  sim_rx[128];
+  uint32_t rx_pos = 0, blen;
+
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  /* Card sends I(0,1) MORE: data=[0xAA, 0xBB] */
+  sim_rx[rx_pos + 0] = 0x00;
+  sim_rx[rx_pos + 1] = PCB_I_BLOCK | PCB_I_MORE; /* 0x20: N(S)=0, MORE */
+  sim_rx[rx_pos + 2] = 0x02;
+  sim_rx[rx_pos + 3] = 0xAA;
+  sim_rx[rx_pos + 4] = 0xBB;
+  sim_rx[rx_pos + 5] = lrc_of(sim_rx + rx_pos, 5);
+  rx_pos += 6;
+
+  /* Card sends R(1) — erroneously received reader's R(1) ACK */
+  build_r_block_sim(sim_rx + rx_pos, &blen, 1, PCB_R_ACK);
+  rx_pos += blen;
+
+  /* Card sends I(1,0) to complete chain: data=[0xCC, 0xDD, 0x90, 0x00] */
+  uint8_t chain_data[] = {0xCC, 0xDD, 0x90, 0x00};
+  build_i_block_response(sim_rx + rx_pos, &blen, 1, chain_data,
+                         sizeof(chain_data));
+  rx_pos += blen;
+
+  uint8_t tx_cap[256];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(6, recv_len); /* 0xAA 0xBB 0xCC 0xDD 0x90 0x00 */
+  TEST_ASSERT_EQUAL_HEX8(0xAA, recv[0]);
+  TEST_ASSERT_EQUAL_HEX8(0xBB, recv[1]);
+  TEST_ASSERT_EQUAL_HEX8(0xCC, recv[2]);
+  TEST_ASSERT_EQUAL_HEX8(0xDD, recv[3]);
+}
+
+/* ── Sc 34: EDC errors exhaust retries → resync succeeds → exchange ─────── */
+void test_sc34_resync_success(void) {
+  /* Three consecutive EDC errors drive retries > 2, triggering S(RESYNCH
+   * request). Card responds S(RESYNCH response). State machine resets and
+   * restarts the full IFS + I-block exchange, which succeeds. */
+  uint8_t apdu[] = {0x00, 0xB0, 0x00, 0x00, 0x01};
+
+  uint8_t  sim_rx[128];
+  uint32_t rx_pos = 0, blen;
+  uint8_t  sw[] = {0x90, 0x00};
+
+  /* Phase 1: IFS exchange */
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  /* Phase 2: three bad I-blocks → retries 1, 2, >2 → resync */
+  for (int i = 0; i < 3; i++) {
+    build_bad_i_block_response(sim_rx + rx_pos, &blen);
+    rx_pos += blen;
+  }
+
+  /* Phase 3: S(RESYNCH response) — PCB = 0xC0|0x20 = 0xE0 */
+  build_s_block_sim(sim_rx + rx_pos, &blen,
+                    PCB_S_RESYNC | PCB_S_RESPONSE, NULL, 0);
+  rx_pos += blen;
+
+  /* Phase 4: fresh IFS exchange after resync */
+  build_s_ifs_response(sim_rx + rx_pos, &blen, ATR_DEFAULT_IFS);
+  rx_pos += blen;
+
+  /* Phase 5: successful I-block exchange */
+  build_i_block_response(sim_rx + rx_pos, &blen, 0, sw, sizeof(sw));
+  rx_pos += blen;
+
+  uint8_t tx_cap[512];
+  slot_sim_setup(sim_rx, rx_pos, tx_cap, sizeof(tx_cap));
+  setup_t1_context();
+
+  uint8_t  recv[64];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T1.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(2, recv_len);
+  TEST_ASSERT_EQUAL_HEX8(0x90, recv[0]);
+  TEST_ASSERT_EQUAL_HEX8(0x00, recv[1]);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_apdu_t1_single_exchange);
@@ -700,5 +1075,14 @@ int main(void) {
   RUN_TEST(test_apdu_t1_r_block_invalid_len);
   RUN_TEST(test_apdu_t1_card_ifs_request);
   RUN_TEST(test_apdu_t1_crc_with_edc_error);
+  /* ISO 7816-3 Annex A scenario coverage */
+  RUN_TEST(test_sc1_ns_toggle);
+  RUN_TEST(test_sc5_reader_chaining_full);
+  RUN_TEST(test_sc10_double_card_retransmit);
+  RUN_TEST(test_sc11_wrong_r_direction);
+  RUN_TEST(test_sc14_wtx_bad_edc_retry);
+  RUN_TEST(test_sc16_card_ifs_bad_edc_retry);
+  RUN_TEST(test_sc23_card_chain_r_error);
+  RUN_TEST(test_sc34_resync_success);
   return UNITY_END();
 }

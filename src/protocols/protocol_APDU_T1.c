@@ -471,7 +471,7 @@ static sc_Status protocol_APDU_T1_transact(sc_context_t  *context,
         if (get_PCB_N(PCB) != get_PCB_N(Last_I.PCB)) {
 
           /* If last iblock specified more block */
-          if (HASMORE(PCB)) {
+          if (HASMORE(Last_I.PCB)) {
             /* Chain data */
             send_length += Last_I.LEN;
             next_PCB = PCB_I_BLOCK;
