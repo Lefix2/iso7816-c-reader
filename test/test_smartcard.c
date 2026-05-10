@@ -432,6 +432,89 @@ void test_sm_debug_hook(void) {
   TEST_ASSERT_GREATER_THAN(0, g_hook_calls);
 }
 
+/* ── initfromatr failure paths ───────────────────────────────────────────── */
+
+/* initfromatr_global → atr_get_WI: TC2=0x00 is forbidden (ISO 7816-3 §8.3).
+ * ATR: TS T0=0x80(TD1) TD1=0x40(TC2) TC2=0x00 — no TCK (T=0 only). */
+void test_sm_initfromatr_wi_zero(void) {
+  static const uint8_t rx[] = {0x3B, 0x80, 0x40, 0x00};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed, r);
+}
+
+/* initfromatr_global → atr_get_fmax / atr_get_Fi: Fi index 7 maps to
+ * f_table[7]=0 (reserved). Both fmax and Fi use the same iFi=TA1>>4; fmax
+ * is checked first so it fails first, making atr_get_Fi unreachable.
+ * ATR: TS T0=0x10(TA1) TA1=0x71(Fi=7,Di=1) — no TCK. */
+void test_sm_initfromatr_fi_reserved(void) {
+  static const uint8_t rx[] = {0x3B, 0x10, 0x71};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, r);
+}
+
+/* initfromatr_global → atr_get_Di: Di index 0 maps to d_table[0]=0
+ * (reserved). Fi=1 (TA1>>4=1, f_table[1]=372) is valid so fmax and Fi
+ * succeed; atr_get_Di is then reached and fails.
+ * ATR: TS T0=0x10(TA1) TA1=0x10(Fi=1,Di=0) — no TCK. */
+void test_sm_initfromatr_di_reserved(void) {
+  static const uint8_t rx[] = {0x3B, 0x10, 0x10};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, r);
+}
+
+/* initfromatr_T1_specific → atr_T1_specific_get_IFS: TA3=0x00 is forbidden.
+ * ATR: TS T0=0x80(TD1) TD1=0x81(TD2,T1) TD2=0x11(TA3,T1) TA3=0x00 TCK=0x10
+ * TCK = T0^TD1^TD2^TA3 = 0x80^0x81^0x11^0x00 = 0x10. */
+void test_sm_initfromatr_ifs_zero(void) {
+  static const uint8_t rx[] = {0x3B, 0x80, 0x81, 0x11, 0x00, 0x10};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed, r);
+}
+
+/* initfromatr_T1_specific → atr_T1_specific_get_CBWI: BWI=(TB3>>4)=0xA=10>9.
+ * ATR: TS T0=0x80(TD1) TD1=0x81(TD2,T1) TD2=0x21(TB3,T1) TB3=0xA5 TCK=0x85
+ * TCK = 0x80^0x81^0x21^0xA5 = 0x85. */
+void test_sm_initfromatr_bwi_reserved(void) {
+  static const uint8_t rx[] = {0x3B, 0x80, 0x81, 0x21, 0xA5, 0x85};
+  slot_sim_setup(rx, sizeof(rx), NULL, 0);
+  sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+
+  uint8_t protocol;
+  atr_len = sizeof(atr_buf);
+  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+
+  TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed, r);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_sm_init);
@@ -463,5 +546,11 @@ int main(void) {
   RUN_TEST(test_sm_finalize_pps_pps1_mismatch);
   RUN_TEST(test_sm_finalize_pps_pps2_mismatch);
   RUN_TEST(test_sm_finalize_pps_pps3_mismatch);
+  /* initfromatr failure paths */
+  RUN_TEST(test_sm_initfromatr_wi_zero);
+  RUN_TEST(test_sm_initfromatr_fi_reserved);
+  RUN_TEST(test_sm_initfromatr_di_reserved);
+  RUN_TEST(test_sm_initfromatr_ifs_zero);
+  RUN_TEST(test_sm_initfromatr_bwi_reserved);
   return UNITY_END();
 }
