@@ -91,7 +91,7 @@ One thing to provide:
 
 ### `slot_itf_t` implementation
 
-Implement the hardware abstraction for your UART/USART peripheral. See `test/slot_sim.c` for a reference (the simulation slot used by tests).
+Implement the hardware abstraction for your UART/USART peripheral. See `test/slot_sim.c` for a minimal reference (simulation slot used by tests) or `samples/` for real hardware examples.
 
 ```c
 slot_itf_t my_slot = {
@@ -142,6 +142,16 @@ r = smartcard_Xfer_Data(slot, cmd, sizeof(cmd), resp, &resp_len);
 smartcard_Power_Off(slot);
 ```
 
+## Samples
+
+The `samples/` directory contains ready-to-use `slot_itf_t` implementations for real hardware:
+
+| Sample | Platform | Notes |
+|---|---|---|
+| `samples/stm32wb_slot/` | STM32WB (HAL + DMA + CMSIS-OS2) | USART-based slot driver with DMA and optional RTOS wait |
+
+Copy the relevant folder into your project, wire up the HAL handles and GPIO pins as indicated in the source, then pass `&hslot_WBSLOT` to `smartcard_Register_slot`.
+
 ## Repository layout
 
 ```
@@ -152,6 +162,7 @@ src/
   sc_debug.h    Internal SC_DBG_COMM macro (not installed)
   maths/        EDC — LRC and CRC-16
   protocols/    ATR, PPS, TPDU T=0, APDU T=0, TPDU T=1, APDU T=1
+samples/        Platform slot_itf_t implementations (copy into your project)
 test/           Unity-based test suite + slot_sim (simulation slot)
 ```
 

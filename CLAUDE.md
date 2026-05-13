@@ -49,7 +49,7 @@ Each protocol is a `protocol_itf_t` — a single `Transact(context, const uint8_
 
 ## Porting to a new platform
 
-1. Implement `slot_itf_t` for your hardware (use `test/slot_sim.c` as reference).
+1. Implement `slot_itf_t` for your hardware (use `test/slot_sim.c` as a minimal reference or `samples/` for real hardware examples).
 2. Add `include/` and `src/` to your compiler include paths.
 3. Compile the sources in `ISO7816_SOURCES` (see `CMakeLists.txt`) alongside your project.
 
@@ -77,6 +77,8 @@ src/
   sc_context.h    sc_context_t definition
   maths/EDC.c     LRC and CRC-16
   protocols/      ATR, PPS, TPDU T=0/T=1, APDU T=0/T=1
+samples/
+  stm32wb_slot/   slot_itf_t implementation for STM32WB (HAL + DMA + CMSIS-OS2)
 test/
   slot_sim.c/h    Software simulation slot
   test_atr.c      ATR parser tests (positive + negative)
