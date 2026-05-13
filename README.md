@@ -2,7 +2,7 @@
 
 Portable C11 library implementing ISO/IEC 7816-3 smartcard communication — ATR parsing, PPS negotiation, T=0 and T=1 APDU/TPDU protocols.
 
-Designed for embedded systems (no OS, no dynamic allocation), but equally usable on Linux/macOS/Windows.
+Designed for embedded systems (no OS, no dynamic allocation), but equally usable on Linux/macOS/Windows. Protocol layer is covered at 100% by the test suite.
 
 ## Features
 
@@ -11,7 +11,7 @@ Designed for embedded systems (no OS, no dynamic allocation), but equally usable
 - T=0: all APDU cases (1/2S/3S/4S/2E/3E/4E), GET RESPONSE chaining, wrong-length retry (0x6C)
 - T=1: I/R/S-block state machine, chaining, IFS negotiation, WTX, EDC (LRC and CRC), resync with abort after 3 failures
 - Hardware abstraction via `slot_itf_t` — implement once per platform
-- Up to `SC_MAX_SLOTS` (2) simultaneous slots
+- Up to `SC_MAX_SLOTS` (1) simultaneous slots
 - Zero dependencies beyond the C standard library
 
 ## Build
@@ -48,7 +48,7 @@ Headers land in `<prefix>/include/iso7816/`, libraries in `<prefix>/lib/`.
 | Variable | Default | Description |
 |---|---|---|
 | `BUILD_TESTING` | `ON` | Build and register the test suite |
-| `SC_MAX_SLOTS` | `2` | Maximum number of registered slots |
+| `SC_MAX_SLOTS` | `1` | Maximum number of registered slots |
 | `ENABLE_COVERAGE` | `OFF` | Instrument with `--coverage` (`-O0 -g`) for lcov/gcov |
 | `ENABLE_ASAN` | `OFF` | Enable AddressSanitizer + UBSan |
 

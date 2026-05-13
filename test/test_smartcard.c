@@ -87,13 +87,11 @@ void test_sm_register_null_slot_number(void) {
 
 void test_sm_register_overflow(void) {
   slot_sim_setup(NULL, 0, NULL, 0);
-  uint32_t s0, s1, s2;
+  uint32_t s0, s1;
   TEST_ASSERT_EQUAL(sc_Status_Success,
                     smartcard_Register_slot(&hslot_sim, &s0));
-  TEST_ASSERT_EQUAL(sc_Status_Success,
+  TEST_ASSERT_EQUAL(sc_Status_Buffer_To_Small,
                     smartcard_Register_slot(&hslot_sim, &s1));
-  sc_Status r = smartcard_Register_slot(&hslot_sim, &s2);
-  TEST_ASSERT_EQUAL(sc_Status_Buffer_To_Small, r);
 }
 
 void test_sm_unregister_bad_slot(void) {
@@ -275,7 +273,8 @@ void test_sm_power_on_ta2_specific_t0(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   TEST_ASSERT_EQUAL(SC_PROTOCOL_T0, protocol);
@@ -290,7 +289,8 @@ void test_sm_power_on_ta2_b5_set(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_Unsuported_feature, r);
 }
@@ -320,7 +320,8 @@ void test_sm_power_on_atr_fail(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_NOT_EQUAL(sc_Status_Success, r);
 }
@@ -335,7 +336,8 @@ void test_sm_pps_transact_timeout(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
 }
@@ -351,7 +353,8 @@ void test_sm_finalize_pps_protocol_mismatch(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
 }
@@ -367,7 +370,8 @@ void test_sm_finalize_pps_pps1_unexpected(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
 }
@@ -383,7 +387,8 @@ void test_sm_finalize_pps_pps1_mismatch(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
 }
@@ -399,7 +404,8 @@ void test_sm_finalize_pps_pps2_mismatch(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
 }
@@ -415,7 +421,8 @@ void test_sm_finalize_pps_pps3_mismatch(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
 }
@@ -448,7 +455,8 @@ void test_sm_initfromatr_wi_zero(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed, r);
 }
@@ -463,7 +471,8 @@ void test_sm_initfromatr_fi_reserved(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, r);
 }
@@ -480,7 +489,8 @@ void test_sm_initfromatr_di_reserved(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, r);
 }
@@ -496,7 +506,8 @@ void test_sm_initfromatr_ifs_zero(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed, r);
 }
@@ -512,7 +523,8 @@ void test_sm_initfromatr_bwi_reserved(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
 
   TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed, r);
 }
@@ -535,7 +547,8 @@ void test_sm_power_on_init_fail(void) {
   slot_sim_get_ctx()->init_fail_countdown = 1;
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
   TEST_ASSERT_EQUAL(sc_Status_Hardware_Error, r);
 }
 
@@ -547,7 +560,8 @@ void test_sm_power_on_activate_fail(void) {
   slot_sim_get_ctx()->activate_fail = 1;
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
   TEST_ASSERT_EQUAL(sc_Status_Hardware_Error, r);
 }
 
@@ -558,7 +572,7 @@ void test_sm_unregister_power_off_fail(void) {
   sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   slot_sim_get_ctx()->deactivate_fail = 1;
-  r = smartcard_UnRegister_slot(g_slot);
+  r                                   = smartcard_UnRegister_slot(g_slot);
   TEST_ASSERT_EQUAL(sc_Status_Hardware_Error, r);
 }
 
@@ -570,7 +584,8 @@ void test_sm_power_on_set_fd_fail(void) {
   slot_sim_get_ctx()->set_F_D_fail = 1;
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
   TEST_ASSERT_EQUAL(sc_Status_Hardware_Error, r);
 }
 
@@ -582,7 +597,8 @@ void test_sm_power_on_set_frequency_fail(void) {
   slot_sim_get_ctx()->set_frequency_fail = 1;
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
   TEST_ASSERT_EQUAL(sc_Status_Hardware_Error, r);
 }
 
@@ -592,8 +608,8 @@ void test_sm_power_on_set_frequency_fail(void) {
  * etu_ns(9,7) = (10000*512)/(64*(5MHz/100kHz)) = 1600 ns.
  * min_etu=1000 ns ≤ 1600 → no adjustment; PPS1=0x97 sent and echoed. */
 void test_sm_prepare_pps_min_etu_ok(void) {
-  static const uint8_t rx[] = {0x3B, 0x10, 0x97,
-                               0xFF, 0x70, 0x97, 0x00, 0x00, 0x18};
+  static const uint8_t rx[] = {0x3B, 0x10, 0x97, 0xFF, 0x70,
+                               0x97, 0x00, 0x00, 0x18};
   slot_sim_setup(rx, sizeof(rx), NULL, 0);
   slot_sim_get_ctx()->get_min_etu_ns_result = sc_Status_Success;
   slot_sim_get_ctx()->get_min_etu_ns_value  = 1000;
@@ -602,15 +618,16 @@ void test_sm_prepare_pps_min_etu_ok(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
 }
 
 /* Same fast card. min_etu=2000 ns > 1600 → loop: iDn 7→6, etu(9,6)=3200 ≥ 2000.
  * PPS1 adjusted to (9<<4)|6=0x96; PCK=0xFF^0x70^0x96^0x00^0x00=0x19. */
 void test_sm_prepare_pps_min_etu_adjust_di(void) {
-  static const uint8_t rx[] = {0x3B, 0x10, 0x97,
-                               0xFF, 0x70, 0x96, 0x00, 0x00, 0x19};
+  static const uint8_t rx[] = {0x3B, 0x10, 0x97, 0xFF, 0x70,
+                               0x96, 0x00, 0x00, 0x19};
   slot_sim_setup(rx, sizeof(rx), NULL, 0);
   slot_sim_get_ctx()->get_min_etu_ns_result = sc_Status_Success;
   slot_sim_get_ctx()->get_min_etu_ns_value  = 2000;
@@ -619,7 +636,8 @@ void test_sm_prepare_pps_min_etu_adjust_di(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
 }
 
@@ -636,7 +654,8 @@ void test_sm_prepare_pps_min_etu_impossible(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
   TEST_ASSERT_EQUAL(sc_Status_PPS_Unsuccessfull, r);
 }
 
@@ -650,7 +669,8 @@ void test_sm_prepare_pps_get_min_etu_error(void) {
 
   uint8_t protocol;
   atr_len = sizeof(atr_buf);
-  r = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len, &protocol);
+  r       = smartcard_Power_On(g_slot, SC_PROTOCOL_AUTO, atr_buf, &atr_len,
+                               &protocol);
   TEST_ASSERT_EQUAL(sc_Status_Hardware_Error, r);
 }
 

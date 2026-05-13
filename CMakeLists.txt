@@ -21,7 +21,7 @@ include(CTest)
 option(ENABLE_COVERAGE "Enable coverage reporting" OFF)
 option(ENABLE_ASAN "Enable AddressSanitizer" OFF)
 
-set(SC_MAX_SLOTS 2 CACHE STRING "Maximum number of registered smartcard slots")
+set(SC_MAX_SLOTS 1 CACHE STRING "Maximum number of registered smartcard slots")
 
 # ────────────────────────────────────────────────────────────────────────────────
 # Sanitizers (ASAN)

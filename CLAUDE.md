@@ -19,7 +19,7 @@ CMake options:
 | Variable | Default | Description |
 |---|---|---|
 | `BUILD_TESTING` | `ON` | Build test suite |
-| `SC_MAX_SLOTS` | `2` | Maximum registered slots |
+| `SC_MAX_SLOTS` | `1` | Maximum registered slots |
 | `ENABLE_COVERAGE` | `OFF` | Instrument with `--coverage` for lcov/gcov |
 | `ENABLE_ASAN` | `OFF` | Enable AddressSanitizer |
 
