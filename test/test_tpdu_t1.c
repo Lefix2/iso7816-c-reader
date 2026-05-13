@@ -477,6 +477,59 @@ void test_tpdu_t1_recv_crc_fail(void) {
   TEST_ASSERT_NOT_EQUAL(sc_Status_Success, r);
 }
 
+/* ── Valid non-zero NAD: check_Block success path (line 94) ─────────────── */
+void test_tpdu_t1_valid_nonzero_nad(void) {
+  /* NAD=0x12 (DAD=1, SAD=2): passes all check_Block guards → line 94.
+   * Card reply uses swap(0x12)=0x21 as NAD (protocol requirement).
+   * Response PCB=0x80 LEN=1 also passes check_Block on receive → line 94 again. */
+  uint8_t send[5];
+  send[0] = 0x12;
+  send[1] = 0x80; /* (PCB & 0x80)!=0, (PCB & 0x1F)==0 → valid in check_Block */
+  send[2] = 0x01; /* LEN=1, <= IFSC */
+  send[3] = 0xAA;
+  send[4] = EDC_LRC(send, 4);
+
+  /* Response: NAD=swap(0x12)=0x21, PCB=0x80 LEN=1 → passes both NAD check
+   * and check_Block on received buffer */
+  uint8_t resp[5] = {0x21, 0x80, 0x01, 0xBB, 0x00};
+  resp[4]         = EDC_LRC(resp, 4);
+
+  uint8_t  recv[32];
+  uint32_t recv_len = sizeof(recv);
+  uint8_t  tx_cap[32];
+
+  setup_t1_context();
+  slot_sim_setup(resp, sizeof(resp), tx_cap, sizeof(tx_cap));
+
+  /* The swap(0x12) NAD check at end_of_transaction produces 0x121 due to
+   * integer promotion, which no uint8_t receive-NAD can satisfy, so the
+   * transaction returns Bad_NAD — but line 94 in check_Block IS executed. */
+  sc_Status r = protocol_TPDU_T1.Transact(&ctx, send, sizeof(send), recv, &recv_len);
+  TEST_ASSERT_EQUAL(sc_Status_TPDU_T1_Bad_NAD, r);
+}
+
+/* ── T=15 protocol present: CGT formula path (lines 137-138) ────────────── */
+void test_tpdu_t1_t15_protocol_cgt(void) {
+  uint8_t  send[5];
+  uint32_t slen;
+  build_send_i_block_lrc(send, &slen, 0, 0xAA);
+
+  uint8_t resp[5] = {0x00, 0x00, 0x01, 0xFF, 0x00};
+  resp[4]         = EDC_LRC(resp, 4);
+
+  uint8_t  recv[32];
+  uint32_t recv_len = sizeof(recv);
+  uint8_t  tx_cap[32];
+
+  setup_t1_context();
+  ctx.params.N              = 1;
+  ctx.params.supported_prot = (uint16_t)(1U << SC_PROTOCOL_T15);
+  slot_sim_setup(resp, sizeof(resp), tx_cap, sizeof(tx_cap));
+
+  sc_Status r = protocol_TPDU_T1.Transact(&ctx, send, slen, recv, &recv_len);
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_tpdu_t1_invalid_params);
@@ -502,5 +555,7 @@ int main(void) {
   RUN_TEST(test_tpdu_t1_recv_info_fail);
   RUN_TEST(test_tpdu_t1_recv_lrc_fail);
   RUN_TEST(test_tpdu_t1_recv_crc_fail);
+  RUN_TEST(test_tpdu_t1_valid_nonzero_nad);
+  RUN_TEST(test_tpdu_t1_t15_protocol_cgt);
   return UNITY_END();
 }

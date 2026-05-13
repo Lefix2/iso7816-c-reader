@@ -438,6 +438,45 @@ void test_apdu_t0_with_debug_hook(void) {
   TEST_ASSERT_GREATER_THAN(0, s_t0_hook_calls);
 }
 
+/* ── Malformed short APDU (C5≠0, length matches neither 3S nor 4S) ──────── */
+void test_apdu_t0_malformed_short(void) {
+  /* C5=3 → 3S needs n=8, 4S needs n=9; send n=10 → APDU_T0_Malformed */
+  uint8_t apdu[] = {0x00, 0x20, 0x00, 0x00, 0x03, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE};
+  slot_sim_setup(NULL, 0, NULL, 0);
+  setup_t0_context();
+
+  uint8_t  recv[16];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+  TEST_ASSERT_EQUAL(sc_Status_APDU_T0_Malformed, r);
+}
+
+/* ── SW1=0x61 but all Ne bytes already received → success, no GetResponse ── */
+void test_apdu_t0_61_all_received(void) {
+  /* Case 2S: Ne=1. Card returns: ACK(B0) + 1 data byte + SW=0x61 0x00.
+   * After TPDU: receive_length=1=Ne → Ne-receive_length=0 → END_TRANSACTION. */
+  uint8_t              apdu[]      = {0x00, 0xB0, 0x00, 0x00, 0x01};
+  static const uint8_t card_resp[] = {0xB0, 0xFF, 0x61, 0x00};
+  uint8_t              tx_cap[16];
+  slot_sim_setup(card_resp, sizeof(card_resp), tx_cap, sizeof(tx_cap));
+  setup_t0_context();
+
+  uint8_t  recv[16];
+  uint32_t recv_len = sizeof(recv);
+
+  sc_Status r =
+      protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_Success, r);
+  TEST_ASSERT_EQUAL(3, recv_len); /* 1 data + SW1 + SW2 */
+  TEST_ASSERT_EQUAL_HEX8(0xFF, recv[0]);
+  TEST_ASSERT_EQUAL_HEX8(0x61, recv[1]);
+  TEST_ASSERT_EQUAL_HEX8(0x00, recv[2]);
+}
+
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_apdu_t0_case1);
@@ -460,5 +499,7 @@ int main(void) {
   RUN_TEST(test_apdu_t0_null_byte_proc);
   RUN_TEST(test_apdu_t0_case3e_envelope);
   RUN_TEST(test_apdu_t0_with_debug_hook);
+  RUN_TEST(test_apdu_t0_malformed_short);
+  RUN_TEST(test_apdu_t0_61_all_received);
   return UNITY_END();
 }

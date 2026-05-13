@@ -43,7 +43,6 @@ typedef enum {
   TPDU_T1_receive_LRC,
   TPDU_T1_receive_CRC,
   TPDU_T1_end_of_transaction,
-  TPDU_T1_exit
 } TPDU_T1_state;
 
 /************************************************************************************
@@ -160,7 +159,7 @@ static sc_Status protocol_TPDU_T1_transact(sc_context_t  *context,
 
   SC_DBG_COMM("T1 TPDU >> ", (char *)send_buffer, len_to_send);
 
-  while (state != TPDU_T1_exit) {
+  for (;;) {
 
     switch (state) {
 
@@ -244,9 +243,8 @@ static sc_Status protocol_TPDU_T1_transact(sc_context_t  *context,
         break;
       }
 
-      END_TRANSACTION(sc_Status_Bad_State);
-
-      break;
+      /* Unreachable: EDC is always LRC or CRC */
+      END_TRANSACTION(sc_Status_Bad_State); // LCOV_EXCL_LINE
 
     case TPDU_T1_receive_LRC:
 
@@ -299,16 +297,9 @@ static sc_Status protocol_TPDU_T1_transact(sc_context_t  *context,
         SC_DBG_COMM("T1 TPDU << ", (char *)receive_buffer, *receive_length);
       }
 
-      state = TPDU_T1_exit;
-      break;
-
-    case TPDU_T1_exit:
-      /* Not supposed to append */
-      return sc_Status_Bad_State;
+      return ret;
     }
   }
-
-  return ret;
 }
 
 /************************************************************************************

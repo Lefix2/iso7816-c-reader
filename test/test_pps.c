@@ -130,6 +130,89 @@ void test_pps_bad_state(void) {
   TEST_ASSERT_EQUAL(sc_Status_Bad_State, r);
 }
 
+/* ── PPS: send_length < 2 → Invalid_Parameter (line 58) ─────────────────── */
+void test_pps_invalid_params(void) {
+  uint8_t pps_req[] = {0xFF};
+
+  slot_sim_setup(NULL, 0, NULL, 0);
+  setup_context();
+
+  uint8_t  resp[PPS_MAX_LENGTH];
+  uint32_t resp_len = sizeof(resp);
+
+  sc_Status r =
+      protocol_pps.Transact(&ctx, pps_req, 1, resp, &resp_len);
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, r);
+}
+
+/* ── PPS: buffer_size < pps_lenght → Buffer_To_Small (line 72) ──────────── */
+void test_pps_buffer_too_small(void) {
+  uint8_t pps_req[] = {0xFF, 0x10, 0x11, 0xFE}; /* length=4 with PPS1 */
+
+  slot_sim_setup(NULL, 0, NULL, 0);
+  setup_context();
+
+  uint8_t  resp[PPS_MAX_LENGTH];
+  uint32_t resp_len = 3; /* < 4 → Buffer_To_Small */
+
+  sc_Status r =
+      protocol_pps.Transact(&ctx, pps_req, sizeof(pps_req), resp, &resp_len);
+  TEST_ASSERT_EQUAL(sc_Status_Buffer_To_Small, r);
+}
+
+/* ── PPS: send_bytes fails → error propagated (line 78) ─────────────────── */
+void test_pps_send_fail(void) {
+  uint8_t pps_req[] = {0xFF, 0x00, 0xFF};
+
+  uint8_t tx_cap[16];
+  slot_sim_setup(NULL, 0, tx_cap, sizeof(tx_cap));
+  setup_context();
+  slot_sim_get_ctx()->send_fail_countdown = 1;
+
+  uint8_t  resp[PPS_MAX_LENGTH];
+  uint32_t resp_len = sizeof(resp);
+
+  sc_Status r =
+      protocol_pps.Transact(&ctx, pps_req, sizeof(pps_req), resp, &resp_len);
+  TEST_ASSERT_EQUAL(sc_Status_Hardware_Error, r);
+}
+
+/* ── PPS: receive_bytes (PPSS+PPS0) fails non-timeout → line 86 ─────────── */
+void test_pps_receive_ppss_fail(void) {
+  uint8_t pps_req[] = {0xFF, 0x00, 0xFF};
+
+  uint8_t tx_cap[16];
+  slot_sim_setup(NULL, 0, tx_cap, sizeof(tx_cap));
+  setup_context();
+  slot_sim_get_ctx()->receive_fail_countdown = 1;
+
+  uint8_t  resp[PPS_MAX_LENGTH];
+  uint32_t resp_len = sizeof(resp);
+
+  sc_Status r =
+      protocol_pps.Transact(&ctx, pps_req, sizeof(pps_req), resp, &resp_len);
+  TEST_ASSERT_EQUAL(sc_Status_Hardware_Error, r);
+}
+
+/* ── PPS: receive remaining bytes fails → error propagated (line 94) ─────── */
+void test_pps_remaining_receive_fail(void) {
+  /* Supply PPSS+PPS0=0x10 (PPS1 present → expects 4 bytes total) but nothing
+   * more → receive_bytes(2 remaining) → Timeout → line 94 */
+  static const uint8_t rx[] = {0xFF, 0x10}; /* only PPSS+PPS0 */
+  uint8_t pps_req[] = {0xFF, 0x10, 0x11, 0xFE};
+
+  uint8_t tx_cap[16];
+  slot_sim_setup(rx, sizeof(rx), tx_cap, sizeof(tx_cap));
+  setup_context();
+
+  uint8_t  resp[PPS_MAX_LENGTH];
+  uint32_t resp_len = sizeof(resp);
+
+  sc_Status r =
+      protocol_pps.Transact(&ctx, pps_req, sizeof(pps_req), resp, &resp_len);
+  TEST_ASSERT_EQUAL(sc_Status_Slot_Reception_Timeout, r);
+}
+
 int main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_pps_echo_accepted);
@@ -138,5 +221,10 @@ int main(void) {
   RUN_TEST(test_pps_timeout);
   RUN_TEST(test_pps_bad_ppss);
   RUN_TEST(test_pps_bad_state);
+  RUN_TEST(test_pps_invalid_params);
+  RUN_TEST(test_pps_buffer_too_small);
+  RUN_TEST(test_pps_send_fail);
+  RUN_TEST(test_pps_receive_ppss_fail);
+  RUN_TEST(test_pps_remaining_receive_fail);
   return UNITY_END();
 }

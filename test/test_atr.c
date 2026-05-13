@@ -421,7 +421,7 @@ void test_atr_t1_edc_present(void) {
   atr.T[1][ATR_INTERFACE_D].value   = SC_PROTOCOL_T1;
   atr.T[2][ATR_INTERFACE_C].present = true;
   atr.T[2][ATR_INTERFACE_C].value   = 0x01; /* CRC */
-  TEST_ASSERT_EQUAL(sc_Status_Success, atr_T1_specific_get_EDC(&atr, &EDC));
+  atr_T1_specific_get_EDC(&atr, &EDC);
   TEST_ASSERT_EQUAL(SC_EDC_CRC, EDC);
 }
 
@@ -439,6 +439,147 @@ void test_atr_with_tb1(void) {
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   TEST_ASSERT_TRUE(ctx.params.ATR.T[0][ATR_INTERFACE_B].present);
   TEST_ASSERT_EQUAL_HEX8(0x00, ctx.params.ATR.T[0][ATR_INTERFACE_B].value);
+}
+
+/* ── ATR: invalid params (send_length != 0) → Invalid_Parameter (line 50) ── */
+void test_atr_invalid_params(void) {
+  slot_sim_setup(NULL, 0, NULL, 0);
+  setup_context();
+  atr_len = sizeof(atr_buf);
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 1, atr_buf, &atr_len);
+  TEST_ASSERT_EQUAL(sc_Status_Invalid_Parameter, r);
+}
+
+/* ── ATR: set_timeout_etu fails → error propagated (line 64) ────────────── */
+void test_atr_set_timeout_fail(void) {
+  static const uint8_t raw[] = {0x3B, 0x00};
+  slot_sim_setup(raw, sizeof(raw), NULL, 0);
+  setup_context();
+  slot_sim_get_ctx()->set_timeout_fail_countdown = 1;
+  atr_len = sizeof(atr_buf);
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+  TEST_ASSERT_EQUAL(sc_Status_Hardware_Error, r);
+}
+
+/* ── ATR: set_guardtime_etu fails → error propagated (line 67) ──────────── */
+void test_atr_set_guardtime_fail(void) {
+  static const uint8_t raw[] = {0x3B, 0x00};
+  slot_sim_setup(raw, sizeof(raw), NULL, 0);
+  setup_context();
+  slot_sim_get_ctx()->set_guardtime_fail_countdown = 1;
+  atr_len = sizeof(atr_buf);
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+  TEST_ASSERT_EQUAL(sc_Status_Hardware_Error, r);
+}
+
+/* ── ATR: T0 receive timeout (line 90) ──────────────────────────────────── */
+void test_atr_t0_receive_fail(void) {
+  static const uint8_t raw[] = {0x3B}; /* only TS, no T0 */
+  slot_sim_setup(raw, sizeof(raw), NULL, 0);
+  setup_context();
+  atr_len = sizeof(atr_buf);
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+  TEST_ASSERT_EQUAL(sc_Status_Slot_Reception_Timeout, r);
+}
+
+/* ── ATR: interface byte buffer overflow (line 102) ─────────────────────── */
+void test_atr_interface_bytes_overflow(void) {
+  /* T0=0x70: TA1+TB1+TC1 present (no TD1) → len=3; buffer_size=4 < 2+3=5 */
+  static const uint8_t raw[] = {0x3B, 0x70};
+  slot_sim_setup(raw, sizeof(raw), NULL, 0);
+  setup_context();
+  atr_len = 4;
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+  TEST_ASSERT_EQUAL(sc_Status_Buffer_To_Small, r);
+}
+
+/* ── ATR: interface bytes receive timeout (line 107) ────────────────────── */
+void test_atr_interface_bytes_receive_fail(void) {
+  /* T0=0x10: TA1 present; only TS+T0 supplied, no TA1 → timeout */
+  static const uint8_t raw[] = {0x3B, 0x10};
+  slot_sim_setup(raw, sizeof(raw), NULL, 0);
+  setup_context();
+  atr_len = sizeof(atr_buf);
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+  TEST_ASSERT_EQUAL(sc_Status_Slot_Reception_Timeout, r);
+}
+
+/* ── ATR: too many TDi bytes (nb_T > 7) → Malformed (line 148) ──────────── */
+void test_atr_too_many_td(void) {
+  /* TS + T0=0x80 + 8 TDi=0x80 → nb_T reaches 8 > ATR_MAX_PROTOCOL=7 */
+  static const uint8_t raw[] = {0x3B, 0x80, 0x80, 0x80, 0x80,
+                                 0x80, 0x80, 0x80, 0x80, 0x80};
+  slot_sim_setup(raw, sizeof(raw), NULL, 0);
+  setup_context();
+  atr_len = sizeof(atr_buf);
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+  TEST_ASSERT_EQUAL(sc_Status_ATR_Malformed, r);
+}
+
+/* ── ATR: historical bytes buffer overflow (line 159) ───────────────────── */
+void test_atr_historical_bytes_overflow(void) {
+  /* T0=0x0F: 15 historical bytes; buffer_size=10 → 2+15=17 > 10 */
+  static const uint8_t raw[] = {0x3B, 0x0F};
+  slot_sim_setup(raw, sizeof(raw), NULL, 0);
+  setup_context();
+  atr_len = 10;
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+  TEST_ASSERT_EQUAL(sc_Status_Buffer_To_Small, r);
+}
+
+/* ── ATR: historical bytes receive timeout (line 164) ───────────────────── */
+void test_atr_historical_bytes_receive_fail(void) {
+  /* T0=0x02: 2 historical bytes; only TS+T0 supplied → timeout */
+  static const uint8_t raw[] = {0x3B, 0x02};
+  slot_sim_setup(raw, sizeof(raw), NULL, 0);
+  setup_context();
+  atr_len = sizeof(atr_buf);
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+  TEST_ASSERT_EQUAL(sc_Status_Slot_Reception_Timeout, r);
+}
+
+/* ── ATR: TCK byte buffer overflow (line 175) ───────────────────────────── */
+void test_atr_tck_buffer_overflow(void) {
+  /* 3B 80 01 → TCK required; buffer_size=3 → 3+1=4 > 3 → overflow */
+  static const uint8_t raw[] = {0x3B, 0x80, 0x01};
+  slot_sim_setup(raw, sizeof(raw), NULL, 0);
+  setup_context();
+  atr_len = 3;
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+  TEST_ASSERT_EQUAL(sc_Status_Buffer_To_Small, r);
+}
+
+/* ── ATR: TCK receive timeout (line 180) ────────────────────────────────── */
+void test_atr_tck_receive_fail(void) {
+  /* 3B 80 01 → TCK required; only 3 bytes supplied → timeout on TCK */
+  static const uint8_t raw[] = {0x3B, 0x80, 0x01};
+  slot_sim_setup(raw, sizeof(raw), NULL, 0);
+  setup_context();
+  atr_len = sizeof(atr_buf);
+
+  sc_Status r = protocol_atr.Transact(&ctx, NULL, 0, atr_buf, &atr_len);
+  TEST_ASSERT_EQUAL(sc_Status_Slot_Reception_Timeout, r);
+}
+
+/* ── atr_get_N: TC1 present → returns TC1 value (line 270) ──────────────── */
+void test_atr_get_n_tc1_present(void) {
+  atr_t   atr;
+  uint8_t N;
+  atr_init(&atr);
+  atr.T[0][ATR_INTERFACE_C].present = true;
+  atr.T[0][ATR_INTERFACE_C].value   = 0x08;
+  atr_get_N(&atr, &N);
+  TEST_ASSERT_EQUAL(0x08, N);
 }
 
 int main(void) {
@@ -482,5 +623,17 @@ int main(void) {
   RUN_TEST(test_atr_t1_cbwi_present);
   RUN_TEST(test_atr_t1_cbwi_bwi_too_large);
   RUN_TEST(test_atr_t1_edc_present);
+  RUN_TEST(test_atr_invalid_params);
+  RUN_TEST(test_atr_set_timeout_fail);
+  RUN_TEST(test_atr_set_guardtime_fail);
+  RUN_TEST(test_atr_t0_receive_fail);
+  RUN_TEST(test_atr_interface_bytes_overflow);
+  RUN_TEST(test_atr_interface_bytes_receive_fail);
+  RUN_TEST(test_atr_too_many_td);
+  RUN_TEST(test_atr_historical_bytes_overflow);
+  RUN_TEST(test_atr_historical_bytes_receive_fail);
+  RUN_TEST(test_atr_tck_buffer_overflow);
+  RUN_TEST(test_atr_tck_receive_fail);
+  RUN_TEST(test_atr_get_n_tc1_present);
   return UNITY_END();
 }

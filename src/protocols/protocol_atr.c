@@ -217,29 +217,13 @@ sc_Status atr_get_convention(const atr_t *atr, sc_convention_t *convention) {
   return (sc_Status_Success);
 }
 
-sc_Status atr_get_fmax(const atr_t *atr, uint32_t *fmax) {
-  uint8_t i;
-
+sc_Status atr_get_Fi_fmax(const atr_t *atr, uint32_t *F, uint32_t *fmax) {
   if (atr->T[0][ATR_INTERFACE_A].present) {
-    i = (atr->T[0][ATR_INTERFACE_A].value) >> 4;
-    return get_iParams(i, 0, NULL, NULL, fmax);
-  } else {
-    (*fmax) = ATR_DEFAULT_FMAX;
+    uint8_t i = (atr->T[0][ATR_INTERFACE_A].value) >> 4;
+    return get_iParams(i, 0, F, NULL, fmax);
   }
-
-  return sc_Status_Success;
-}
-
-sc_Status atr_get_Fi(const atr_t *atr, uint32_t *F) {
-  uint8_t i;
-
-  if (atr->T[0][ATR_INTERFACE_A].present) {
-    i = (atr->T[0][ATR_INTERFACE_A].value) >> 4;
-    return get_iParams(i, 0, F, NULL, NULL);
-  } else {
-    (*F) = ATR_DEFAULT_F;
-  }
-
+  (*F)    = ATR_DEFAULT_F;
+  (*fmax) = ATR_DEFAULT_FMAX;
   return sc_Status_Success;
 }
 
@@ -281,14 +265,12 @@ sc_Status atr_get_P(const atr_t *atr, uint8_t *P) {
   return sc_Status_Success;
 }
 
-sc_Status atr_get_N(const atr_t *atr, uint8_t *N) {
+void atr_get_N(const atr_t *atr, uint8_t *N) {
   if (atr->T[0][ATR_INTERFACE_C].present) {
     (*N) = atr->T[0][ATR_INTERFACE_C].value;
   } else {
     (*N) = ATR_DEFAULT_N;
   }
-
-  return sc_Status_Success;
 }
 
 sc_Status atr_get_WI(const atr_t *atr, uint8_t *WI) {
@@ -306,19 +288,16 @@ sc_Status atr_get_WI(const atr_t *atr, uint8_t *WI) {
   return sc_Status_Success;
 }
 
-sc_Status atr_T1_specific_get_EDC(const atr_t *atr, uint8_t *EDC) {
+void atr_T1_specific_get_EDC(const atr_t *atr, uint8_t *EDC) {
   for (int i = 2; i < ATR_MAX_PROTOCOL; i++) {
     /* For TD defining T1 */
     if ((atr->T[i][ATR_INTERFACE_C].present) &&
         ((atr->T[i - 1][ATR_INTERFACE_D].value & 0x0F) == SC_PROTOCOL_T1)) {
       *EDC = atr->T[i][ATR_INTERFACE_C].value & 0x01;
-      return sc_Status_Success;
+      return;
     }
   }
-
   *EDC = ATR_DEFAULT_EDC;
-
-  return sc_Status_Success;
 }
 
 sc_Status atr_T1_specific_get_IFS(const atr_t *atr, uint8_t *IFS) {

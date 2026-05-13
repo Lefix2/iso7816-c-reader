@@ -429,6 +429,44 @@ void test_tpdu_t0_send_remaining_fail(void) {
   TEST_ASSERT_NOT_EQUAL(sc_Status_Success, r);
 }
 
+/* ── Single-byte recv overflow: inscmplt ACK after all bytes received ─────── */
+void test_tpdu_t0_single_byte_recv_overflow(void) {
+  /* INS=0xB0, inscmplt=0x4F; P3=1, recv_len=3 (1 data + 2 SW)
+   * Card sends inscmplt twice: 1st → receive byte, 2nd → *receive_length+3 > 3 */
+  uint8_t  hdr[5]  = {0x00, 0xB0, 0x00, 0x00, 0x01};
+  uint8_t  recv[8];
+  uint32_t recv_len = 3;
+
+  static const uint8_t card_resp[] = {0x4F, 0xCA, 0x4F};
+  uint8_t              tx_cap[32];
+
+  setup_t0_context();
+  slot_sim_setup(card_resp, sizeof(card_resp), tx_cap, sizeof(tx_cap));
+
+  sc_Status r = protocol_TPDU_T0.Transact(&ctx, hdr, sizeof(hdr), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_TPDU_T0_Bad_Length, r);
+}
+
+/* ── Single-byte send overflow: inscmplt ACK after all bytes sent ─────────── */
+void test_tpdu_t0_single_byte_send_overflow(void) {
+  /* INS=0xD6, inscmplt=0x29; P3=1
+   * Card sends inscmplt twice: 1st → send byte, 2nd → send_length+1 > len_to_send */
+  uint8_t  tpdu[6] = {0x00, 0xD6, 0x00, 0x00, 0x01, 0xAA};
+  uint8_t  recv[8];
+  uint32_t recv_len = 2;
+
+  static const uint8_t card_resp[] = {0x29, 0x29};
+  uint8_t              tx_cap[32];
+
+  setup_t0_context();
+  slot_sim_setup(card_resp, sizeof(card_resp), tx_cap, sizeof(tx_cap));
+
+  sc_Status r = protocol_TPDU_T0.Transact(&ctx, tpdu, sizeof(tpdu), recv, &recv_len);
+
+  TEST_ASSERT_EQUAL(sc_Status_TPDU_T0_Bad_Length, r);
+}
+
 /* ── Single-byte receive failure (inscmplt then timeout) ─────────────────── */
 void test_tpdu_t0_single_byte_recv_fail(void) {
   /* inscmplt=0x4F triggers transact_remaining_byte receive; no data → timeout */
@@ -491,6 +529,8 @@ int main(void) {
   RUN_TEST(test_tpdu_t0_recv_overflow);
   RUN_TEST(test_tpdu_t0_send_overflow);
   RUN_TEST(test_tpdu_t0_send_remaining_fail);
+  RUN_TEST(test_tpdu_t0_single_byte_recv_overflow);
+  RUN_TEST(test_tpdu_t0_single_byte_send_overflow);
   RUN_TEST(test_tpdu_t0_single_byte_recv_fail);
   RUN_TEST(test_tpdu_t0_single_byte_send_fail);
   return UNITY_END();
