@@ -38,7 +38,7 @@ Three abstraction layers communicate via vtable structs:
 ### 1. Public API (`include/smartcard.h`, `src/smartcard.c`)
 Entry point for callers. Manages a static slot registry (`reg_p[SC_MAX_SLOTS]`). On `smartcard_Power_On`: activates the card class A→C, reads ATR, parses it into `iso_params_t`, performs PPS negotiation if card is in negotiable mode, then sets F/D/frequency on the slot.
 
-Debug hook: `smartcard_Set_Debug_Hook(sc_debug_hook_t)` registers a runtime `(tag, data, len)` callback. Stored in `g_sc_debug_hook` (non-static, declared `extern` in `src/sc_debug.h`). Protocol files call `SC_DBG_COMM(tag, ptr, len)` — no-op when hook is NULL.
+Debug hook: `smartcard_Set_Debug_Hook(hook, categories)` registers a runtime `(category, tag, data, len)` callback filtered by a bitmask (`SC_DBG_CAT_GENERAL/ATR/PPS/APDU/TPDU/ALL`). Globals are `static` in `src/sc_debug.c`. Protocol files call category-specific functions (`sc_dbg_atr`, `sc_dbg_pps`, `sc_dbg_apdu`, `sc_dbg_tpdu`); general events use `sc_dbg`. All are no-ops when the hook is NULL or the category is not enabled.
 
 ### 2. Protocol layer (`src/protocols/`)
 Each protocol is a `protocol_itf_t` — a single `Transact(context, const uint8_t *send, slen, uint8_t *recv, rlen)` function pointer. Instances: `protocol_atr`, `protocol_pps`, `protocol_APDU_T0`, `protocol_TPDU_T0`, `protocol_APDU_T1`, `protocol_TPDU_T1`. APDU layers call TPDU layers internally. Public ATR accessors in `protocols.h` (`atr_get_*`) take `const atr_t *`.
@@ -73,10 +73,11 @@ include/              Public headers (installed)
   sc_defs.h           Types, constants, iso_params_t, atr_t
   sc_status.h         sc_Status enum
 src/
-  smartcard.c         API implementation, g_sc_debug_hook
+  smartcard.c         API implementation
+  sc_debug.c          Debug hook globals (static) + sc_dbg/sc_dbg_atr/… functions
   sc_defs.c           Fi/Di/fmax lookup tables
   include/            Internal headers (not installed)
-    sc_debug.h        SC_DBG_COMM macro + extern g_sc_debug_hook
+    sc_debug.h        sc_dbg_* function declarations
     sc_context.h      sc_context_t definition
     protocols.h       ATR accessor declarations + protocol vtable externs
     protocol_itf.h    protocol_itf_t struct

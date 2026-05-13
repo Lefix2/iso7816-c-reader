@@ -172,7 +172,7 @@ static sc_Status protocol_APDU_T0_transact(sc_context_t  *context,
   ret   = sc_Status_Success;
   state = APDU_T0_start_of_transaction;
 
-  SC_DBG_COMM("T0 APDU >> ", (char *)send_buffer, len_to_send);
+  sc_dbg_apdu("T0 APDU >> ", send_buffer, len_to_send);
 
   for (;;) {
 
@@ -342,7 +342,7 @@ static sc_Status protocol_APDU_T0_transact(sc_context_t  *context,
         /* Add last Sw1 Sw2 */
         (*receive_length) += 2;
 
-        SC_DBG_COMM("T0 APDU << ", (char *)receive_buffer, *receive_length);
+        sc_dbg_apdu("T0 APDU << ", receive_buffer, *receive_length);
       }
 
       return ret;

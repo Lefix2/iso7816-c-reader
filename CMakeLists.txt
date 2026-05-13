@@ -68,6 +68,7 @@ endif()
 
 set(ISO7816_SOURCES
     src/smartcard.c
+    src/sc_debug.c
     src/sc_defs.c
     src/maths/EDC.c
     src/protocols/protocol_atr.c

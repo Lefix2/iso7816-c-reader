@@ -40,7 +40,11 @@ static sc_Status register_and_power_on_t0(void) {
 static int  g_hook_calls;
 static char g_hook_last_tag[32];
 
-static void test_hook(const char *tag, const uint8_t *data, uint32_t len) {
+static void test_hook(uint8_t        category,
+                      const char    *tag,
+                      const uint8_t *data,
+                      uint32_t       len) {
+  (void)category;
   (void)data;
   (void)len;
   g_hook_calls++;
@@ -51,12 +55,12 @@ static void test_hook(const char *tag, const uint8_t *data, uint32_t len) {
 
 void setUp(void) {
   smartcard_Init();
-  smartcard_Set_Debug_Hook(NULL);
+  smartcard_Set_Debug_Hook(NULL, 0);
   g_hook_calls       = 0;
   g_hook_last_tag[0] = '\0';
 }
 
-void tearDown(void) { smartcard_Set_Debug_Hook(NULL); }
+void tearDown(void) { smartcard_Set_Debug_Hook(NULL, 0); }
 
 /* ── Tests ───────────────────────────────────────────────────────────────── */
 
@@ -417,7 +421,7 @@ void test_sm_finalize_pps_pps3_mismatch(void) {
 }
 
 void test_sm_debug_hook(void) {
-  smartcard_Set_Debug_Hook(test_hook);
+  smartcard_Set_Debug_Hook(test_hook, SC_DBG_CAT_ALL);
   slot_sim_setup(k_rx_t0, sizeof(k_rx_t0), NULL, 0);
   sc_Status r = smartcard_Register_slot(&hslot_sim, &g_slot);
   TEST_ASSERT_EQUAL(sc_Status_Success, r);

@@ -68,22 +68,33 @@ Add `include/` and `src/` to your compiler include path and compile the sources 
 
 ## Debug
 
-Register a hook at runtime to trace all protocol traffic:
+Register a hook at runtime to trace protocol traffic by category:
 
 ```c
-void my_hook(const char *tag, const uint8_t *data, uint32_t len) {
+void my_hook(uint8_t category, const char *tag, const uint8_t *data, uint32_t len) {
     if (data)
-        printf("[%s] %u bytes: ", tag, len);  /* comm trace */
+        printf("[%s] %u bytes\n", tag, len);  /* comm trace */
     else
-        printf("[%s]\n", tag);               /* event */
+        printf("[%s]\n", tag);                /* event */
 }
 
-smartcard_Set_Debug_Hook(my_hook);
+/* Enable ATR + APDU tracing only */
+smartcard_Set_Debug_Hook(my_hook, SC_DBG_CAT_ATR | SC_DBG_CAT_APDU);
+
+/* Enable everything */
+smartcard_Set_Debug_Hook(my_hook, SC_DBG_CAT_ALL);
 ```
 
-Tags: `"ATR <<"`, `"PPS >>"`, `"PPS <<"`, `"T0 TPDU >>"`, `"T0 TPDU <<"`,
-`"T1 TPDU >>"`, `"T1 TPDU <<"`, `"T0 APDU >>"`, `"T0 APDU <<"`,
-`"T1 APDU >>"`, `"T1 APDU <<"`, `"power_on"`, `"power_on_params"`.
+Category bitmasks (OR-combine freely):
+
+| Constant | Value | Coverage |
+|---|---|---|
+| `SC_DBG_CAT_GENERAL` | `0x01` | `power_on`, `power_on_params` |
+| `SC_DBG_CAT_ATR`     | `0x02` | `ATR <<` |
+| `SC_DBG_CAT_PPS`     | `0x04` | `PPS >>`, `PPS <<` |
+| `SC_DBG_CAT_APDU`    | `0x08` | `T0 APDU >>`, `T0 APDU <<`, `T1 APDU >>`, `T1 APDU <<` |
+| `SC_DBG_CAT_TPDU`    | `0x10` | `T0 TPDU >>`, `T0 TPDU <<`, `T1 TPDU >>`, `T1 TPDU <<` |
+| `SC_DBG_CAT_ALL`     | `0x1F` | All of the above |
 
 Pass `NULL` to disable. Zero overhead when no hook is registered.
 
@@ -163,10 +174,11 @@ include/          Public headers (installed)
   sc_defs.h       Types, constants, iso_params_t, atr_t
   sc_status.h     sc_Status enum
 src/
-  smartcard.c     Public API + debug hook implementation
+  smartcard.c     Public API implementation
+  sc_debug.c      Debug hook globals + sc_dbg/sc_dbg_atr/… functions
   sc_defs.c       ISO 7816 parameter tables (Fi/Di/fmax)
   include/        Internal headers (not installed)
-    sc_debug.h    SC_DBG_COMM macro + g_sc_debug_hook extern
+    sc_debug.h    sc_dbg_* function declarations
     sc_context.h  sc_context_t definition
     protocols.h   ATR accessor declarations + protocol vtable externs
     protocol_itf.h protocol_itf_t struct

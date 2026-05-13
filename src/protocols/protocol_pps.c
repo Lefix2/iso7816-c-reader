@@ -51,7 +51,7 @@ static sc_Status protocol_pps_transact(sc_context_t  *context,
 
   *receive_length = 0;
 
-  SC_DBG_COMM("PPS >> ", (char *)send_buffer, send_length);
+  sc_dbg_pps("PPS >> ", send_buffer, send_length);
 
   if ((send_length < 2) || (context == (void *)0) ||
       (context->slot == (void *)0)) {
@@ -99,7 +99,7 @@ static sc_Status protocol_pps_transact(sc_context_t  *context,
     return sc_Status_PPS_Handshake_Error;
   }
 
-  SC_DBG_COMM("PPS << ", (char *)receive_buffer, *receive_length);
+  sc_dbg_pps("PPS << ", receive_buffer, *receive_length);
 
   return sc_Status_Success;
 }
