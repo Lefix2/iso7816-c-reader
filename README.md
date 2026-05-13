@@ -49,6 +49,8 @@ Headers land in `<prefix>/include/iso7816/`, libraries in `<prefix>/lib/`.
 |---|---|---|
 | `BUILD_TESTING` | `ON` | Build and register the test suite |
 | `SC_MAX_SLOTS` | `2` | Maximum number of registered slots |
+| `ENABLE_COVERAGE` | `OFF` | Instrument with `--coverage` (`-O0 -g`) for lcov/gcov |
+| `ENABLE_ASAN` | `OFF` | Enable AddressSanitizer + UBSan |
 
 ## Integration
 
@@ -155,15 +157,24 @@ Copy the relevant folder into your project, wire up the HAL handles and GPIO pin
 ## Repository layout
 
 ```
-include/        Public headers (smartcard.h, slot_itf.h, sc_defs.h, sc_status.h)
+include/          Public headers (installed)
+  smartcard.h     Top-level API
+  slot_itf.h      Hardware abstraction vtable
+  sc_defs.h       Types, constants, iso_params_t, atr_t
+  sc_status.h     sc_Status enum
 src/
-  smartcard.c   Public API + debug hook implementation
-  sc_defs.c     ISO 7816 parameter tables (Fi/Di/fmax)
-  sc_debug.h    Internal SC_DBG_COMM macro (not installed)
-  maths/        EDC — LRC and CRC-16
-  protocols/    ATR, PPS, TPDU T=0, APDU T=0, TPDU T=1, APDU T=1
-samples/        Platform slot_itf_t implementations (copy into your project)
-test/           Unity-based test suite + slot_sim (simulation slot)
+  smartcard.c     Public API + debug hook implementation
+  sc_defs.c       ISO 7816 parameter tables (Fi/Di/fmax)
+  include/        Internal headers (not installed)
+    sc_debug.h    SC_DBG_COMM macro + g_sc_debug_hook extern
+    sc_context.h  sc_context_t definition
+    protocols.h   ATR accessor declarations + protocol vtable externs
+    protocol_itf.h protocol_itf_t struct
+    EDC.h         LRC/CRC-16 declarations
+  maths/          EDC — LRC and CRC-16
+  protocols/      ATR, PPS, TPDU T=0, APDU T=0, TPDU T=1, APDU T=1
+samples/          Platform slot_itf_t implementations (copy into your project)
+test/             Unity-based test suite + slot_sim (simulation slot)
 ```
 
 ## License

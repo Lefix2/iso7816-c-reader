@@ -20,6 +20,8 @@ CMake options:
 |---|---|---|
 | `BUILD_TESTING` | `ON` | Build test suite |
 | `SC_MAX_SLOTS` | `2` | Maximum registered slots |
+| `ENABLE_COVERAGE` | `OFF` | Instrument with `--coverage` for lcov/gcov |
+| `ENABLE_ASAN` | `OFF` | Enable AddressSanitizer |
 
 ## Formatting
 
@@ -65,29 +67,33 @@ No platform config header required — library uses `<string.h>` and `<stdint.h>
 ## File layout
 
 ```
-include/          Public headers (installed)
-  smartcard.h     API + sc_debug_hook_t typedef
-  slot_itf.h      Hardware abstraction vtable
-  sc_defs.h       Types, constants, iso_params_t, atr_t
-  sc_status.h     sc_Status enum
+include/              Public headers (installed)
+  smartcard.h         API + sc_debug_hook_t typedef
+  slot_itf.h          Hardware abstraction vtable
+  sc_defs.h           Types, constants, iso_params_t, atr_t
+  sc_status.h         sc_Status enum
 src/
-  smartcard.c     API implementation, g_sc_debug_hook
-  sc_defs.c       Fi/Di/fmax lookup tables
-  sc_debug.h      Internal: SC_DBG_COMM macro + extern g_sc_debug_hook
-  sc_context.h    sc_context_t definition
-  maths/EDC.c     LRC and CRC-16
-  protocols/      ATR, PPS, TPDU T=0/T=1, APDU T=0/T=1
+  smartcard.c         API implementation, g_sc_debug_hook
+  sc_defs.c           Fi/Di/fmax lookup tables
+  include/            Internal headers (not installed)
+    sc_debug.h        SC_DBG_COMM macro + extern g_sc_debug_hook
+    sc_context.h      sc_context_t definition
+    protocols.h       ATR accessor declarations + protocol vtable externs
+    protocol_itf.h    protocol_itf_t struct
+    EDC.h             LRC/CRC-16 declarations
+  maths/EDC.c         LRC and CRC-16
+  protocols/          ATR, PPS, TPDU T=0/T=1, APDU T=0/T=1
 samples/
-  stm32wb_slot/   slot_itf_t implementation for STM32WB (HAL + DMA + CMSIS-OS2)
+  stm32wb_slot/       slot_itf_t implementation for STM32WB (HAL + DMA + CMSIS-OS2)
 test/
-  slot_sim.c/h    Software simulation slot
-  test_atr.c      ATR parser tests (positive + negative)
-  test_pps.c      PPS negotiation tests
-  test_apdu_t0.c  T=0 APDU tests
-  test_apdu_t1.c  T=1 APDU tests (chaining, WTX, resync, bad EDC)
+  slot_sim.c/h        Software simulation slot
+  test_atr.c          ATR parser tests (positive + negative)
+  test_pps.c          PPS negotiation tests
+  test_apdu_t0.c      T=0 APDU tests
+  test_apdu_t1.c      T=1 APDU tests (chaining, WTX, resync, bad EDC)
 .github/workflows/
-  ci.yml          3 jobs: build-and-test, sanitizers (ASan+UBSan), coverage (lcov)
-  release.yml     GitHub release on v* tag
+  ci.yml              3 jobs: build-and-test, sanitizers (ASan+UBSan), coverage (lcov)
+  release.yml         GitHub release on v* tag
 ```
 
 ## CI
