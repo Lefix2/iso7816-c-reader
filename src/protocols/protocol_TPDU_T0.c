@@ -117,7 +117,7 @@ static sc_Status protocol_TPDU_T0_transact(sc_context_t  *context,
   ret   = sc_Status_Success;
   state = TPDU_T0_start_of_transaction;
 
-  SC_DBG_COMM("T0 TPDU >> ", (char *)send_buffer, len_to_send);
+  sc_dbg_tpdu("T0 TPDU >> ", send_buffer, len_to_send);
 
   for (;;) {
 
@@ -293,7 +293,7 @@ static sc_Status protocol_TPDU_T0_transact(sc_context_t  *context,
 
     case TPDU_T0_end_of_transaction:
       if (ret == sc_Status_Success) {
-        SC_DBG_COMM("T0 TPDU << ", (char *)receive_buffer, *receive_length);
+        sc_dbg_tpdu("T0 TPDU << ", receive_buffer, *receive_length);
       }
 
       return ret;

@@ -409,8 +409,11 @@ void test_apdu_t0_case3e_envelope(void) {
 
 /* ── Debug hook: SC_DBG_COMM fires when hook registered ─────────────────── */
 static int s_t0_hook_calls;
-static void
-t0_hook_counter(const char *tag, const uint8_t *data, uint32_t len) {
+static void t0_hook_counter(uint8_t        category,
+                             const char    *tag,
+                             const uint8_t *data,
+                             uint32_t       len) {
+  (void)category;
   (void)tag;
   (void)data;
   (void)len;
@@ -425,14 +428,14 @@ void test_apdu_t0_with_debug_hook(void) {
   setup_t0_context();
 
   s_t0_hook_calls = 0;
-  smartcard_Set_Debug_Hook(t0_hook_counter);
+  smartcard_Set_Debug_Hook(t0_hook_counter, SC_DBG_CAT_ALL);
 
   uint8_t   recv[16];
   uint32_t  recv_len = sizeof(recv);
   sc_Status r =
       protocol_APDU_T0.Transact(&ctx, apdu, sizeof(apdu), recv, &recv_len);
 
-  smartcard_Set_Debug_Hook(NULL);
+  smartcard_Set_Debug_Hook(NULL, 0);
 
   TEST_ASSERT_EQUAL(sc_Status_Success, r);
   TEST_ASSERT_GREATER_THAN(0, s_t0_hook_calls);

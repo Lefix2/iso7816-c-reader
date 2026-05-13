@@ -191,7 +191,7 @@ static sc_Status protocol_atr_transact(sc_context_t  *context,
 
   context->params.ATR = atr;
 
-  SC_DBG_COMM("ATR << ", (char *)receive_buffer, *receive_length);
+  sc_dbg_atr("ATR << ", receive_buffer, *receive_length);
 
   return sc_Status_Success;
 }

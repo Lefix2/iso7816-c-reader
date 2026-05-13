@@ -28,12 +28,6 @@ static struct reg_t {
 } reg_p[SC_MAX_SLOTS];
 
 /************************************************************************************
- * Public variables
- ************************************************************************************/
-
-sc_debug_hook_t g_sc_debug_hook = NULL;
-
-/************************************************************************************
  * Private functions
  ************************************************************************************/
 
@@ -277,7 +271,6 @@ static sc_Status finalize_pps(sc_context_t *context,
  * Public functions
  ************************************************************************************/
 
-void smartcard_Set_Debug_Hook(sc_debug_hook_t hook) { g_sc_debug_hook = hook; }
 
 sc_Status smartcard_Init(void) {
   uint8_t slotIdx;
@@ -442,7 +435,7 @@ sc_Status smartcard_Power_On(uint32_t  slot,
   /* Update context to get real frequency */
   slotContext->slot->get_frequency(&(slotContext->params.frequency));
 
-  if (g_sc_debug_hook) {
+  if (sc_dbg_enabled(SC_DBG_CAT_GENERAL)) {
     char buf[80];
     snprintf(buf, sizeof(buf), "T%d F=%lu D=%lu freq=%lu/%lu Hz",
              (int)slotContext->params.default_protocol,
@@ -450,9 +443,8 @@ sc_Status smartcard_Power_On(uint32_t  slot,
              (unsigned long)slotContext->params.D,
              (unsigned long)slotContext->params.frequency,
              (unsigned long)slotContext->params.fmax);
-    g_sc_debug_hook("power_on", NULL, 0);
-    g_sc_debug_hook("power_on_params", (const uint8_t *)buf,
-                    (uint32_t)strlen(buf));
+    sc_dbg("power_on", NULL, 0);
+    sc_dbg("power_on_params", (const uint8_t *)buf, (uint32_t)strlen(buf));
   }
 
   /* Update card state*/
