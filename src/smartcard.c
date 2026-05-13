@@ -54,7 +54,7 @@ static sc_Status slot_deInit(uint32_t slot) {
   return reg_p[slot].context.slot->deinit();
 }
 
-static sc_Status initfromatr_default_protocol(iso_params_t *params) {
+static void initfromatr_default_protocol(iso_params_t *params) {
   uint16_t supported_prot = 0;
   uint8_t  defaultProt    = SC_PROTOCOL_AUTO;
   uint8_t  tmp_prot       = 0;
@@ -82,8 +82,6 @@ static sc_Status initfromatr_default_protocol(iso_params_t *params) {
 
   params->supported_prot   = supported_prot;
   params->default_protocol = defaultProt;
-
-  return sc_Status_Success;
 }
 
 static sc_Status initfromatr_T1_specific(iso_params_t *params) {
@@ -91,10 +89,7 @@ static sc_Status initfromatr_T1_specific(iso_params_t *params) {
   atr_t     atr = params->ATR;
 
   /* Init EDC type */
-  if ((ret = atr_T1_specific_get_EDC(&atr, &(params->EDC))) !=
-      sc_Status_Success) {
-    return ret;
-  }
+  atr_T1_specific_get_EDC(&atr, &(params->EDC));
 
   /* Init IFSD/IFSC */
   if ((ret = atr_T1_specific_get_IFS(&atr, &(params->IFSC))) !=
@@ -120,14 +115,9 @@ static sc_Status initfromatr_global(iso_params_t *params) {
     return ret;
   }
 
-  /* Init fmax */
-  if ((ret = atr_get_fmax(&(params->ATR), &(params->fmax))) !=
+  /* Init Fi and fmax */
+  if ((ret = atr_get_Fi_fmax(&(params->ATR), &(params->Fi), &(params->fmax))) !=
       sc_Status_Success) {
-    return ret;
-  }
-
-  /* Init Fi */
-  if ((ret = atr_get_Fi(&(params->ATR), &(params->Fi))) != sc_Status_Success) {
     return ret;
   }
 
@@ -137,9 +127,7 @@ static sc_Status initfromatr_global(iso_params_t *params) {
   }
 
   /* Init N */
-  if ((ret = atr_get_N(&(params->ATR), &(params->N))) != sc_Status_Success) {
-    return ret;
-  }
+  atr_get_N(&(params->ATR), &(params->N));
 
   return ret;
 }
@@ -148,9 +136,7 @@ static sc_Status initfromatr(iso_params_t *params) {
   sc_Status ret;
 
   /* init default protocol */
-  if ((ret = initfromatr_default_protocol(params)) != sc_Status_Success) {
-    return ret;
-  }
+  initfromatr_default_protocol(params);
 
   /* init global parameters*/
   if ((ret = initfromatr_global(params)) != sc_Status_Success) {
@@ -198,18 +184,9 @@ prepare_pps(sc_context_t *context, uint8_t *pps, uint32_t *pps_len) {
         if (etu_ns < min_etu_ns) {
           // find a compromise, F must be betwee Fd and Fi, D between Dd and Di
           while (etu_ns < min_etu_ns) {
-            // can't lower Di
-            if (iDn <= 1) {
-              // can lower Fi
-              if (iFn <= 1)
-                return sc_Status_PPS_Unsuccessfull;
-
-              iFn--;
-              iDn = atr->T[0][ATR_INTERFACE_A].value & 0x0F;
-            } else
-              iDn--;
-
-            // Compute new etu
+            if (iDn <= 1)
+              return sc_Status_PPS_Unsuccessfull;
+            iDn--;
             etu_ns = get_min_etu_ns(iFn, iDn);
           }
         }
@@ -272,12 +249,7 @@ static sc_Status finalize_pps(sc_context_t *context,
     uint8_t iFn = pps_resp[PPS0_IDX + pps1_resp_pres] >> 4;
     uint8_t iDn = pps_resp[PPS0_IDX + pps1_resp_pres] & 0x0F;
 
-    if (get_Fi(iFn, &params->F) != sc_Status_Success)
-      return sc_Status_PPS_Unsuccessfull;
-    if (get_Di(iDn, &params->D) != sc_Status_Success)
-      return sc_Status_PPS_Unsuccessfull;
-    if (get_fmax(iFn, &params->fmax) != sc_Status_Success)
-      return sc_Status_PPS_Unsuccessfull;
+    get_iParams(iFn, iDn, &params->F, &params->D, &params->fmax);
   } else {
     params->F    = SC_Fd;
     params->D    = SC_Dd;
@@ -286,26 +258,16 @@ static sc_Status finalize_pps(sc_context_t *context,
 
   // ISO-7816 9.3 3rd rule
   if (pps2_resp_pres) {
-    if (pps2_pres == 0)
-      return sc_Status_PPS_Unsuccessfull;
-
     if (pps_resp[PPS0_IDX + pps1_resp_pres + pps2_resp_pres] !=
         pps[PPS0_IDX + pps1_pres + pps2_pres])
       return sc_Status_PPS_Unsuccessfull;
-  } else {
-    // No support for SPU
   }
 
   // ISO-7816 9.3 4th rule
   if (pps3_resp_pres) {
-    if (pps3_pres == 0)
-      return sc_Status_PPS_Unsuccessfull;
-
     if (pps_resp[PPS0_IDX + pps1_resp_pres + pps2_resp_pres + pps3_resp_pres] !=
         pps[PPS0_IDX + pps1_pres + pps2_pres + pps3_pres])
       return sc_Status_PPS_Unsuccessfull;
-  } else {
-    // RFU
   }
 
   return sc_Status_Success;

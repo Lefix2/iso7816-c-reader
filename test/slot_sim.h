@@ -31,6 +31,21 @@ typedef struct {
   uint32_t        guardtime_etu;
   sc_convention_t convention;
   uint8_t         IFSD;
+
+  /* Error injection — cleared to 0 by slot_sim_setup (no error).
+   * Countdown: decremented on each call; error injected when it hits 0. */
+  uint8_t   set_timeout_fail_countdown;
+  uint8_t   set_guardtime_fail_countdown;
+  uint8_t   send_fail_countdown;
+  uint8_t   receive_fail_countdown; /* inject Hardware_Error when countdown hits 0 */
+  uint8_t   get_ifsd_fail;
+  sc_Status get_min_etu_ns_result; /* default: Unsuported_feature */
+  uint32_t  get_min_etu_ns_value;  /* returned when result == Success */
+  uint8_t   init_fail_countdown;   /* fails (Hardware_Error) when countdown reaches 0 */
+  uint8_t   activate_fail;         /* always fail activate when non-zero */
+  uint8_t   deactivate_fail;       /* always fail deactivate when non-zero */
+  uint8_t   set_F_D_fail;          /* fail set_F_D when non-zero */
+  uint8_t   set_frequency_fail;    /* fail set_frequency when non-zero */
 } slot_sim_ctx_t;
 
 /**

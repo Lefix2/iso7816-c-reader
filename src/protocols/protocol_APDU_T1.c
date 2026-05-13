@@ -52,7 +52,6 @@ typedef enum {
   APDU_T1_prepare_next_block,
   APDU_T1_resynch_request,
   APDU_T1_end_of_transaction,
-  APDU_T1_exit
 } APDU_T1_state;
 
 /************************************************************************************
@@ -159,8 +158,6 @@ static sc_Status build_R_block(iso_params_t *params,
 
 static uint8_t get_PCB_N(uint8_t PCB) {
   switch (PCB & 0xC0) {
-  case PCB_S_BLOCK:
-    return 0;
   case PCB_R_BLOCK:
     return (PCB >> 4) & 0x01;
   default:
@@ -176,8 +173,6 @@ static uint8_t get_PCB_type(uint8_t PCB) {
 }
 
 static bool check_resync_pcb(uint8_t PCB) {
-  if (get_PCB_type(PCB) != PCB_S_BLOCK)
-    return false;
   if (ISSREQ(PCB))
     return false;
   if (STYPE(PCB) != PCB_S_RESYNC)
@@ -236,7 +231,7 @@ static sc_Status protocol_APDU_T1_transact(sc_context_t  *context,
 
   SC_DBG_COMM("T1 APDU >> ", (char *)send_buffer, len_to_send);
 
-  while (state != APDU_T1_exit) {
+  for (;;) {
 
     switch (state) {
 
@@ -329,9 +324,9 @@ static sc_Status protocol_APDU_T1_transact(sc_context_t  *context,
         state = APDU_T1_process_S_block;
         break;
 
-      default:
-        state = APDU_T1_resynch_request;
-        break;
+      default: // LCOV_EXCL_LINE
+        /* Unreachable: get_PCB_type returns only I/R/S */
+        END_TRANSACTION(sc_Status_APDU_T1_Bad_Response); // LCOV_EXCL_LINE
       }
 
       break;
@@ -404,7 +399,7 @@ static sc_Status protocol_APDU_T1_transact(sc_context_t  *context,
       }
 
       /* If last block was transmitted by the card */
-      if (Last_I.sender == CARD) {
+      else {
 
         /* Ns != Nc , the send sequence number of the card*/
         if (get_PCB_N(PCB) != context->params.Nc) {
@@ -446,8 +441,6 @@ static sc_Status protocol_APDU_T1_transact(sc_context_t  *context,
         }
       }
 
-      /* Bad state */
-      state = APDU_T1_resynch_request;
       break;
 
     /**
@@ -471,7 +464,7 @@ static sc_Status protocol_APDU_T1_transact(sc_context_t  *context,
         if (get_PCB_N(PCB) != get_PCB_N(Last_I.PCB)) {
 
           /* If last iblock specified more block */
-          if (HASMORE(PCB)) {
+          if (HASMORE(Last_I.PCB)) {
             /* Chain data */
             send_length += Last_I.LEN;
             next_PCB = PCB_I_BLOCK;
@@ -502,13 +495,13 @@ static sc_Status protocol_APDU_T1_transact(sc_context_t  *context,
       }
 
       /* If last block was transmitted by the card */
-      if (Last_I.sender == CARD) {
+      else {
 
         /* If Nr != Ns of the last I-block*/
         if (get_PCB_N(PCB) != get_PCB_N(Last_I.PCB)) {
 
           /* If last iblock specified more block */
-          if (HASMORE(PCB)) {
+          if (HASMORE(Last_I.PCB)) {
             /* Ack data */
             next_PCB = PCB_R_BLOCK | PCB_R_ACK;
             state    = APDU_T1_prepare_next_block;
@@ -516,13 +509,12 @@ static sc_Status protocol_APDU_T1_transact(sc_context_t  *context,
             break;
           }
 
-          /* If last I block don't specified more block */
+          /* Unreachable: Last_I.sender==CARD implies HASMORE(Last_I.PCB) here */
           else {
-            /* card had to ack with I-block, send R block */
-            next_PCB = PCB_R_BLOCK | PCB_R_OTHER_ERROR;
-            state    = APDU_T1_prepare_next_block;
-            retries++;
-            break;
+            next_PCB = PCB_R_BLOCK | PCB_R_OTHER_ERROR; // LCOV_EXCL_LINE
+            state    = APDU_T1_prepare_next_block;        // LCOV_EXCL_LINE
+            retries++;                                    // LCOV_EXCL_LINE
+            break;                                        // LCOV_EXCL_LINE
           }
         }
 
@@ -534,8 +526,6 @@ static sc_Status protocol_APDU_T1_transact(sc_context_t  *context,
         }
       }
 
-      /* Bad state */
-      state = APDU_T1_resynch_request;
       break;
 
     /**
@@ -680,10 +670,6 @@ static sc_Status protocol_APDU_T1_transact(sc_context_t  *context,
       }
       }
 
-      if (ret != sc_Status_Success) {
-        END_TRANSACTION(ret);
-      }
-
       state = APDU_T1_transact;
       break;
 
@@ -707,16 +693,9 @@ static sc_Status protocol_APDU_T1_transact(sc_context_t  *context,
         SC_DBG_COMM("T1 APDU << ", (char *)receive_buffer, *receive_length);
       }
 
-      state = APDU_T1_exit;
-      break;
-
-    case APDU_T1_exit:
-      /* Not supposed to append */
-      return sc_Status_Bad_State;
+      return ret;
     }
   }
-
-  return ret;
 }
 
 /************************************************************************************

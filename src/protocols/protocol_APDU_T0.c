@@ -48,7 +48,6 @@ typedef enum {
   APDU_T0_GetResponse,
   APDU_T0_Exchange_TPDU,
   APDU_T0_end_of_transaction,
-  APDU_T0_exit
 } APDU_T0_state;
 
 /************************************************************************************
@@ -175,7 +174,7 @@ static sc_Status protocol_APDU_T0_transact(sc_context_t  *context,
 
   SC_DBG_COMM("T0 APDU >> ", (char *)send_buffer, len_to_send);
 
-  while (state != APDU_T0_exit) {
+  for (;;) {
 
     switch (state) {
 
@@ -308,29 +307,11 @@ static sc_Status protocol_APDU_T0_transact(sc_context_t  *context,
       if ((SW1 & 0xF0) == 0x90) {
         /* 0x9000 */
         if (SW1 == 0x90 && SW2 == 0x00) {
-          /* All data sent */
           if (send_length == len_to_send) {
-            /* Remaining data to receive */
-            if (*receive_length < Ne) {
-              // 04/06/18 patch, 9000 indicate end of transaction anyway
-            }
-            /* Success of transaction */
             END_TRANSACTION(ret);
           }
-          if (send_length < len_to_send) {
-            if (Nc >= 256) {
-              state = APDU_T0_Enveloppe;
-              break;
-            }
-            if (Nc > 0) {
-              state = APDU_T0_Receive;
-              break;
-            }
-            /* Error, Data to send but Nc = 0 */
-            END_TRANSACTION(sc_Status_Bad_State);
-          }
-          /* send_length Not supposed to be greater than len_to_send */
-          END_TRANSACTION(sc_Status_Bad_State);
+          state = APDU_T0_Enveloppe;
+          break;
         }
         /* Transaction ended with 0x9XYZ code */
         END_TRANSACTION(ret);
@@ -344,21 +325,16 @@ static sc_Status protocol_APDU_T0_transact(sc_context_t  *context,
           if (Ne - *receive_length == 0) {
             END_TRANSACTION(ret);
           }
-          if (Ne - *receive_length > 0) {
-            Nx    = SW2 == 0 ? 256 : SW2;
-            state = APDU_T0_GetResponse;
-            break;
-          }
-          END_TRANSACTION(sc_Status_Bad_State);
+          Nx    = SW2 == 0 ? 256 : SW2;
+          state = APDU_T0_GetResponse;
+          break;
         }
         /* Transaction ended with 0x6XYZ code */
         END_TRANSACTION(ret);
       }
 
-      /* Non ISO SW1 (!= 0x9 or 0x6)*/
-      END_TRANSACTION(sc_Status_APDU_T0_SW_Error);
-
-      break;
+      /* Unreachable: TPDU T0 guarantees SW1 is 0x6x or 0x9x */
+      END_TRANSACTION(sc_Status_TPDU_T0_Bad_Proc_byte); // LCOV_EXCL_LINE
 
     case APDU_T0_end_of_transaction:
 
@@ -369,16 +345,9 @@ static sc_Status protocol_APDU_T0_transact(sc_context_t  *context,
         SC_DBG_COMM("T0 APDU << ", (char *)receive_buffer, *receive_length);
       }
 
-      state = APDU_T0_exit;
-      break;
-
-    case APDU_T0_exit:
-      /* Not supposed to append */
-      return sc_Status_Bad_State;
+      return ret;
     }
   }
-
-  return ret;
 }
 
 protocol_itf_t protocol_APDU_T0 = {protocol_APDU_T0_transact};

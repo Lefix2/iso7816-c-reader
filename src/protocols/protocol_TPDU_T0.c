@@ -40,7 +40,6 @@ typedef enum {
   TPDU_T0_transact_remaining_byte,
   TPDU_T0_receive_SW2,
   TPDU_T0_end_of_transaction,
-  TPDU_T0_exit
 } TPDU_T0_state;
 
 /************************************************************************************
@@ -59,7 +58,7 @@ static sc_Status protocol_TPDU_T0_transact(sc_context_t  *context,
   bool          is_rcv         = false;
   uint32_t      len_to_receive = 0;
   uint32_t      len_to_send    = 0;
-  uint32_t      len = 0, Ne = 0, Na = 0;
+  uint32_t      len = 0, Na = 0;
   uint8_t       proc_byte, SW1 = 0, SW2 = 0;
   uint8_t       INS = 0;
   uint32_t      WT, GT; /* Character times */
@@ -120,7 +119,7 @@ static sc_Status protocol_TPDU_T0_transact(sc_context_t  *context,
 
   SC_DBG_COMM("T0 TPDU >> ", (char *)send_buffer, len_to_send);
 
-  while (state != TPDU_T0_exit) {
+  for (;;) {
 
     switch (state) {
 
@@ -143,11 +142,7 @@ static sc_Status protocol_TPDU_T0_transact(sc_context_t  *context,
         is_rcv = false;
       }
 
-      Ne = Na = len_to_receive - 2;
-      if ((Ne > 0) &&
-          (Ne != (send_buffer[P3_IDX] == 0 ? 256 : send_buffer[P3_IDX]))) {
-        END_TRANSACTION(sc_Status_TPDU_T0_Bad_Header);
-      }
+      Na = len_to_receive - 2;
 
       INS = send_buffer[INS_IDX];
 
@@ -190,14 +185,9 @@ static sc_Status protocol_TPDU_T0_transact(sc_context_t  *context,
       /* ACK */
       if (proc_byte == (INS) || proc_byte == (INS ^ 0x01)) // Deprecated
       {
-        if (len_to_send > 0 || len_to_receive > 2) {
-          state = TPDU_T0_transact_remaining_bytes;
-          break;
-        } else {
-          /* No more data to transfer, wait for sw1 */
-          state = TPDU_T0_receive_procedure_byte;
-          break;
-        }
+        /* len_to_send >= 5 always, so len_to_send > 0 || len_to_receive > 2 always true */
+        state = TPDU_T0_transact_remaining_bytes;
+        break;
       }
 
       /* ACK, transact one remaining byte */
@@ -205,14 +195,9 @@ static sc_Status protocol_TPDU_T0_transact(sc_context_t  *context,
                                        // put operation in tmp var
       if (proc_byte == inscmplt || proc_byte == (INS ^ 0xFE)) // Deprecated)
       {
-        if (len_to_send > 0 || len_to_receive > 2) {
-          state = TPDU_T0_transact_remaining_byte;
-          break;
-        } else {
-          /* No more data to transfer, wait for sw1 */
-          state = TPDU_T0_receive_procedure_byte;
-          break;
-        }
+        /* len_to_send >= 5 always, so len_to_send > 0 || len_to_receive > 2 always true */
+        state = TPDU_T0_transact_remaining_byte;
+        break;
       }
 
       /* Invalid procedure byte, not supposed to be reach */
@@ -311,16 +296,10 @@ static sc_Status protocol_TPDU_T0_transact(sc_context_t  *context,
         SC_DBG_COMM("T0 TPDU << ", (char *)receive_buffer, *receive_length);
       }
 
-      state = TPDU_T0_exit;
-      break;
+      return ret;
 
-    case TPDU_T0_exit:
-      /* Not supposed to append */
-      return sc_Status_Bad_State;
     }
   }
-
-  return ret;
 }
 
 /************************************************************************************
